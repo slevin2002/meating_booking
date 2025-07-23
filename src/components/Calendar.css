@@ -10,20 +10,28 @@
 }
 
 .calendar-container::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(102, 126, 234, 0.05) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(102, 126, 234, 0.05) 0%,
+    transparent 70%
+  );
   animation: rotate 30s linear infinite;
   pointer-events: none;
 }
 
 @keyframes rotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .calendar-header {
@@ -134,7 +142,7 @@
 }
 
 .calendar-day::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -179,7 +187,7 @@
 }
 
 .booking-form::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -248,7 +256,7 @@
 }
 
 .time-slot::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -348,23 +356,23 @@
   .calendar-container {
     padding: 1.5rem;
   }
-  
+
   .calendar-header h2 {
     font-size: 2rem;
   }
-  
+
   .calendar-nav h3 {
     font-size: 1.25rem;
   }
-  
+
   .calendar-day {
     font-size: 0.9rem;
   }
-  
+
   .time-slots {
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   }
-  
+
   .form-actions {
     flex-direction: column;
   }
@@ -374,19 +382,19 @@
   .calendar-container {
     padding: 1rem;
   }
-  
+
   .calendar-header h2 {
     font-size: 1.75rem;
   }
-  
+
   .calendar-grid {
     padding: 1rem;
   }
-  
+
   .booking-form {
     padding: 1.5rem;
   }
-  
+
   .time-slots {
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
   }
@@ -529,4 +537,163 @@
   color: #666;
   font-size: 0.8rem;
   margin: 0.25rem 0;
+}
+
+/* Overlay for modal */
+.modal-overlay,
+.details-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(30, 30, 40, 0.45); /* less opaque */
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px); /* subtle blur */
+}
+
+/* Modal dialog */
+.modal-dialog,
+.details-modal {
+  background: #fff;
+  color: #222;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  min-width: 320px;
+  max-width: 420px;
+  width: 100%;
+  position: relative;
+  z-index: 1010;
+}
+
+/* Modal header */
+.modal-header {
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.2rem;
+}
+
+/* Meeting details */
+.details-section {
+  margin-bottom: 1.2rem;
+}
+.details-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.details-row {
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Avatars */
+.attendee-avatars {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+.attendee-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  transition: transform 0.15s;
+}
+.attendee-avatar:hover {
+  transform: scale(1.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Action buttons */
+.details-actions,
+.modal-actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 1.2rem;
+  flex-wrap: wrap;
+}
+.btn-copy,
+.btn-edit,
+.btn-cancel,
+.btn-join,
+.btn-primary,
+.btn-secondary {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.97rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background 0.2s;
+}
+.btn-copy:hover {
+  background: #e0e7ff;
+}
+.btn-edit:hover {
+  background: #ffe066;
+}
+.btn-cancel:hover {
+  background: #ffb3b3;
+}
+.btn-join {
+  background: #06d6a0;
+  color: #fff;
+}
+.btn-join:hover {
+  background: #049e6d;
+}
+.btn-primary {
+  background: #6c63ff;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #4b47b5;
+}
+.btn-secondary {
+  background: #fff;
+  border: 1px solid #ccc;
+}
+.btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+/* Modal close button */
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  color: #888;
+  z-index: 1020;
+}
+.modal-close:hover {
+  color: #222;
+}
+
+@media (max-width: 600px) {
+  .modal-dialog,
+  .details-modal {
+    max-width: 98vw;
+    padding: 1.2rem 0.5rem;
+  }
 }
