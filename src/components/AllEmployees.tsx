@@ -198,7 +198,6 @@ const AllEmployees: React.FC<AllEmployeesProps> = ({ teams }) => {
                 <tr>
                   <th>#</th>
                   <th>Employee Name</th>
-                  <th>Initials</th>
                   <th>Status</th>
                   <th>Project</th>
                   <th>Current Meetings</th>
@@ -224,12 +223,6 @@ const AllEmployees: React.FC<AllEmployeesProps> = ({ teams }) => {
                     <tr key={index} className="employee-row">
                       <td className="row-number">{index + 1}</td>
                       <td className="employee-name">{employee.name}</td>
-                      <td className="initials">
-                        {employee.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </td>
                       <td
                         className={`status ${employee.status} ${
                           isAboutToBeFree(employee.meetings)

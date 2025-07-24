@@ -17,6 +17,7 @@ import {
 interface TimeSlot {
   id: string;
   time: string;
+  displayTime?: string;
   available: boolean;
   bookedBy?: string;
 }
@@ -51,6 +52,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedStartTime, setSelectedStartTime] = useState<string>("");
   const [selectedEndTime, setSelectedEndTime] = useState<string>("");
+  const [selectedStartSlot, setSelectedStartSlot] = useState<string>("");
+  const [selectedEndSlot, setSelectedEndSlot] = useState<string>("");
   const [selectedTeam, setSelectedTeam] = useState<string>("");
   const [meetingTitle, setMeetingTitle] = useState<string>("");
   const [showBookingForm, setShowBookingForm] = useState<boolean>(false);
@@ -248,17 +251,50 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     return days;
   };
 
-  const timeSlots: TimeSlot[] = [
-    { id: "1", time: "09:00 AM", available: true },
-    { id: "2", time: "10:00 AM", available: true },
-    { id: "3", time: "11:00 AM", available: true },
-    { id: "4", time: "12:00 PM", available: false, bookedBy: "Team Alpha" },
-    { id: "5", time: "01:00 PM", available: true },
-    { id: "6", time: "02:00 PM", available: true },
-    { id: "7", time: "03:00 PM", available: false, bookedBy: "Team Beta" },
-    { id: "8", time: "04:00 PM", available: true },
-    { id: "9", time: "05:00 PM", available: true },
-  ];
+  // Generate 15-minute time slots from 9:00 AM to 6:00 PM
+  const generateTimeSlots = () => {
+    const slots: TimeSlot[] = [];
+    const startHour = 9; // 9 AM
+    const endHour = 18; // 6 PM
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        const time = `${hour.toString().padStart(2, "0")}:${minute
+          .toString()
+          .padStart(2, "0")}`;
+        const displayTime = new Date(
+          `2000-01-01T${time}:00`
+        ).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+        slots.push({
+          id: `${hour}-${minute}`,
+          time: time,
+          displayTime: displayTime,
+          available: true,
+        });
+      }
+    }
+    return slots;
+  };
+
+  const timeSlots = generateTimeSlots();
+
+  // Helper function to check if a time slot is available (at least 2 hours in advance)
+  const isTimeSlotAvailable = (slot: TimeSlot) => {
+    const now = new Date();
+    const selectedDateTime = new Date(selectedDate);
+    const [startHour, startMinute] = slot.time.split(":").map(Number);
+    selectedDateTime.setHours(startHour, startMinute, 0, 0);
+
+    const timeDifference = selectedDateTime.getTime() - now.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+
+    return hoursDifference >= 2;
+  };
 
   const handleDateClick = async (date: Date) => {
     setSelectedDate(date);
@@ -277,6 +313,41 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       setDayMeetings([]);
     }
     setShowDayMeetings(true);
+  };
+
+  const handleTimeSlotSelect = (slotId: string, isStart: boolean) => {
+    const slot = timeSlots.find((s) => s.id === slotId);
+    if (!slot) return;
+
+    // Check if this time slot is at least 2 hours in advance
+    const now = new Date();
+    const selectedDateTime = new Date(selectedDate);
+    const [startHour, startMinute] = slot.time.split(":").map(Number);
+    selectedDateTime.setHours(startHour, startMinute, 0, 0);
+
+    const timeDifference = selectedDateTime.getTime() - now.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+
+    if (hoursDifference < 2) {
+      alert("Meetings must be booked at least 2 hours in advance.");
+      return;
+    }
+
+    if (isStart) {
+      setSelectedStartSlot(slotId);
+      setSelectedStartTime(slot.time);
+      // Reset end slot if it's before the new start slot
+      if (selectedEndSlot && slotId >= selectedEndSlot) {
+        setSelectedEndSlot("");
+        setSelectedEndTime("");
+      }
+    } else {
+      // Only allow end slot selection if start slot is selected and end slot is after start slot
+      if (selectedStartSlot && slotId > selectedStartSlot) {
+        setSelectedEndSlot(slotId);
+        setSelectedEndTime(slot.time);
+      }
+    }
   };
 
   const checkMemberConflicts = async () => {
@@ -345,6 +416,22 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       meetingTitle &&
       selectedRoom
     ) {
+      // Check if meeting is at least 2 hours in advance
+      const now = new Date();
+      const selectedDateTime = new Date(selectedDate);
+      const [advanceStartHour, advanceStartMinute] = selectedStartTime
+        .split(":")
+        .map(Number);
+      selectedDateTime.setHours(advanceStartHour, advanceStartMinute, 0, 0);
+
+      const timeDifference = selectedDateTime.getTime() - now.getTime();
+      const hoursDifference = timeDifference / (1000 * 60 * 60);
+
+      if (hoursDifference < 2) {
+        alert("Meetings must be booked at least 2 hours in advance.");
+        return;
+      }
+
       // Validate end time is after start time
       const start = selectedStartTime;
       const end = selectedEndTime;
@@ -507,6 +594,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       setShowBookingForm(false);
       setSelectedStartTime("");
       setSelectedEndTime("");
+      setSelectedStartSlot("");
+      setSelectedEndSlot("");
       setSelectedTeam("");
       setMeetingTitle("");
       setSelectedRoom("");
@@ -705,24 +794,112 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
               </div>
 
               <div className="form-group">
-                <label>Select Start Time:</label>
-                <input
-                  type="time"
-                  value={selectedStartTime}
-                  onChange={(e) => setSelectedStartTime(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Select End Time:</label>
-                <input
-                  type="time"
-                  value={selectedEndTime}
-                  onChange={(e) => setSelectedEndTime(e.target.value)}
-                  required
-                  min={selectedStartTime}
-                  disabled={!selectedStartTime}
-                />
+                <label>Select Time Slots:</label>
+                <div
+                  style={{
+                    background: "#e3f2fd",
+                    border: "1px solid #bbdefb",
+                    borderRadius: "6px",
+                    padding: "8px 12px",
+                    marginBottom: "15px",
+                    fontSize: "12px",
+                    color: "#1976d2",
+                  }}
+                >
+                  ⏰ <strong>Booking Policy:</strong> Meetings must be booked at
+                  least 2 hours in advance
+                </div>
+                <div className="time-slots-container">
+                  <div className="time-slots-section">
+                    <h4>Start Time:</h4>
+                    <div className="time-slots-grid">
+                      {timeSlots.map((slot) => {
+                        const isAvailable = isTimeSlotAvailable(slot);
+                        return (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            className={`time-slot-btn ${
+                              selectedStartSlot === slot.id ? "selected" : ""
+                            } ${!isAvailable ? "unavailable" : ""}`}
+                            onClick={() => handleTimeSlotSelect(slot.id, true)}
+                            disabled={!isAvailable}
+                            title={
+                              !isAvailable
+                                ? "Must book at least 2 hours in advance"
+                                : ""
+                            }
+                          >
+                            {slot.displayTime}
+                            {!isAvailable && (
+                              <span className="unavailable-indicator">⚠️</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="time-slots-section">
+                    <h4>End Time:</h4>
+                    <div className="time-slots-grid">
+                      {timeSlots
+                        .filter(
+                          (slot) =>
+                            !selectedStartSlot || slot.id > selectedStartSlot
+                        )
+                        .map((slot) => {
+                          const isAvailable = isTimeSlotAvailable(slot);
+                          return (
+                            <button
+                              key={slot.id}
+                              type="button"
+                              className={`time-slot-btn ${
+                                selectedEndSlot === slot.id ? "selected" : ""
+                              } ${!isAvailable ? "unavailable" : ""}`}
+                              onClick={() =>
+                                handleTimeSlotSelect(slot.id, false)
+                              }
+                              disabled={!selectedStartSlot || !isAvailable}
+                              title={
+                                !isAvailable
+                                  ? "Must book at least 2 hours in advance"
+                                  : ""
+                              }
+                            >
+                              {slot.displayTime}
+                              {!isAvailable && (
+                                <span className="unavailable-indicator">
+                                  ⚠️
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedStartTime && selectedEndTime && (
+                  <div className="selected-time-display">
+                    <strong>Selected Time:</strong> {selectedStartTime} -{" "}
+                    {selectedEndTime}
+                    <br />
+                    <small>
+                      Duration:{" "}
+                      {Math.round(
+                        (new Date(
+                          `2000-01-01T${selectedEndTime}:00`
+                        ).getTime() -
+                          new Date(
+                            `2000-01-01T${selectedStartTime}:00`
+                          ).getTime()) /
+                          (1000 * 60)
+                      )}{" "}
+                      minutes
+                    </small>
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
@@ -872,24 +1049,6 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                   )}
                 </div>
               </div>
-
-              {selectedAttendees.length > 0 &&
-                selectedDate &&
-                selectedStartTime &&
-                selectedEndTime && (
-                  <div className="form-group">
-                    <button
-                      type="button"
-                      onClick={checkMemberConflicts}
-                      disabled={checkingConflicts}
-                      className="btn-check-conflicts"
-                    >
-                      {checkingConflicts
-                        ? "Checking..."
-                        : "Check Member Conflicts"}
-                    </button>
-                  </div>
-                )}
 
               {memberConflicts.length > 0 && (
                 <div className="conflicts-section">
