@@ -73,16 +73,19 @@ brew services start mongodb-community
 You need to run TWO terminals to start both servers:
 
 #### Terminal 1 - Start Backend
+
 ```bash
 npm run backend
 ```
 
 #### Terminal 2 - Start Frontend
+
 ```bash
 npm start
 ```
 
 **Alternative: Development Mode**
+
 ```bash
 # Terminal 1 - Backend with auto-reload
 npm run backend-dev

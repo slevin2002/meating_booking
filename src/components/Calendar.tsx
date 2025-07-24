@@ -61,6 +61,11 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   const [memberBusyMap, setMemberBusyMap] = useState<{
     [member: string]: boolean;
   }>({});
+  const [roomBusyMap, setRoomBusyMap] = useState<{
+    [room: string]: boolean;
+  }>({});
+  const [checkingAvailability, setCheckingAvailability] =
+    useState<boolean>(false);
   const [dayMeetings, setDayMeetings] = useState<any[]>([]);
   const [showDayMeetings, setShowDayMeetings] = useState(false);
   const [detailsMeeting, setDetailsMeeting] = useState<any | null>(null);
@@ -73,6 +78,16 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     }
   }, [detailsMeeting]);
 
+  // Debug memberBusyMap changes
+  useEffect(() => {
+    console.log("memberBusyMap changed:", memberBusyMap);
+  }, [memberBusyMap]);
+
+  // Debug roomBusyMap changes
+  useEffect(() => {
+    console.log("roomBusyMap changed:", roomBusyMap);
+  }, [roomBusyMap]);
+
   // Check each member's availability when team, start, or end time changes
   React.useEffect(() => {
     const checkAllMembers = async () => {
@@ -83,6 +98,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         !selectedEndTime
       ) {
         setMemberBusyMap({});
+        setCheckingAvailability(false);
         return;
       }
       // Validate time format (HH:mm or HH:mm:ss)
@@ -106,27 +122,109 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       }
       const teamObj = teams.find((t) => t.name === selectedTeam);
       if (!teamObj) return;
+
+      setCheckingAvailability(true);
       const busyMap: { [member: string]: boolean } = {};
       await Promise.all(
         teamObj.members.map(async (member) => {
-          const response = await fetch(
-            `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+          try {
+            // Format date consistently to avoid timezone issues
+            const checkYear = selectedDate.getFullYear();
+            const checkMonth = String(selectedDate.getMonth() + 1).padStart(
+              2,
+              "0"
+            );
+            const checkDay = String(selectedDate.getDate()).padStart(2, "0");
+            const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
+
+            const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
               member
-            )}&date=${
-              selectedDate.toISOString().split("T")[0]
-            }&startTime=${selectedStartTime}&endTime=${selectedEndTime}`
-          );
-          if (response.ok) {
-            const data = await response.json();
-            busyMap[member] = data.status === "busy";
-          } else {
+            )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+
+            console.log(`Checking availability for ${member}:`, url);
+
+            const response = await fetch(url);
+            if (response.ok) {
+              const data = await response.json();
+              console.log(`Response for ${member}:`, data);
+              busyMap[member] = data.status === "busy";
+            } else {
+              console.error(
+                `Error checking ${member}:`,
+                response.status,
+                response.statusText
+              );
+              busyMap[member] = false;
+            }
+          } catch (error) {
+            console.error(`Exception checking ${member}:`, error);
             busyMap[member] = false;
           }
         })
       );
+      console.log("Final busy map:", busyMap);
+      console.log("Setting memberBusyMap state with:", busyMap);
       setMemberBusyMap(busyMap);
+
+      // Check room availability
+      const roomBusyMap: { [room: string]: boolean } = {};
+      await Promise.all(
+        meetingRooms.map(async (room) => {
+          try {
+            // Format date consistently to avoid timezone issues
+            const checkYear = selectedDate.getFullYear();
+            const checkMonth = String(selectedDate.getMonth() + 1).padStart(
+              2,
+              "0"
+            );
+            const checkDay = String(selectedDate.getDate()).padStart(2, "0");
+            const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
+
+            const url = `http://localhost:5000/api/meetings/check-room-availability?room=${encodeURIComponent(
+              room
+            )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+
+            console.log(`Checking room availability for ${room}:`, url);
+
+            const response = await fetch(url);
+            if (response.ok) {
+              const data = await response.json();
+              console.log(`Room response for ${room}:`, data);
+              roomBusyMap[room] = data.status === "busy";
+            } else {
+              console.error(
+                `Error checking room ${room}:`,
+                response.status,
+                response.statusText
+              );
+              roomBusyMap[room] = false;
+            }
+          } catch (error) {
+            console.error(`Exception checking room ${room}:`, error);
+            roomBusyMap[room] = false;
+          }
+        })
+      );
+
+      console.log("Final room busy map:", roomBusyMap);
+      setRoomBusyMap(roomBusyMap);
+      setCheckingAvailability(false);
+
       // Auto-deselect any busy members from selectedAttendees
       setSelectedAttendees((prev) => prev.filter((member) => !busyMap[member]));
+
+      // Log the selected date and time for debugging
+      const debugYear = selectedDate.getFullYear();
+      const debugMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
+      const debugDay = String(selectedDate.getDate()).padStart(2, "0");
+      const debugFormattedDate = `${debugYear}-${debugMonth}-${debugDay}`;
+      console.log("Selected date for booking:", debugFormattedDate);
+      console.log(
+        "Selected time range:",
+        selectedStartTime,
+        "-",
+        selectedEndTime
+      );
     };
     checkAllMembers();
   }, [selectedTeam, selectedDate, selectedStartTime, selectedEndTime, teams]);
@@ -198,12 +296,19 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       const conflicts: MemberConflict[] = [];
 
       for (const member of selectedAttendees) {
+        // Format date consistently to avoid timezone issues
+        const conflictYear = selectedDate.getFullYear();
+        const conflictMonth = String(selectedDate.getMonth() + 1).padStart(
+          2,
+          "0"
+        );
+        const conflictDay = String(selectedDate.getDate()).padStart(2, "0");
+        const conflictFormattedDate = `${conflictYear}-${conflictMonth}-${conflictDay}`;
+
         const response = await fetch(
           `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
             member
-          )}&date=${
-            selectedDate.toISOString().split("T")[0]
-          }&startTime=${selectedStartTime}&endTime=${selectedEndTime}`
+          )}&date=${conflictFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`
         );
 
         if (response.ok) {
@@ -267,21 +372,95 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
 
       // Final validation: check if any selected attendee is busy
       const busyAttendees: string[] = [];
+      console.log("=== FINAL VALIDATION ===");
+      const finalYear = selectedDate.getFullYear();
+      const finalMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
+      const finalDay = String(selectedDate.getDate()).padStart(2, "0");
+      const finalFormattedDate = `${finalYear}-${finalMonth}-${finalDay}`;
+      console.log("Selected date:", finalFormattedDate);
+      console.log(
+        "Selected time range:",
+        selectedStartTime,
+        "-",
+        selectedEndTime
+      );
+      console.log("Selected attendees:", selectedAttendees);
+      console.log("Selected room:", selectedRoom);
+
       for (const member of selectedAttendees) {
-        const response = await fetch(
-          `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
-            member
-          )}&date=${
-            selectedDate.toISOString().split("T")[0]
-          }&startTime=${selectedStartTime}&endTime=${selectedEndTime}`
+        // Format date consistently to avoid timezone issues
+        const validationYear = selectedDate.getFullYear();
+        const validationMonth = String(selectedDate.getMonth() + 1).padStart(
+          2,
+          "0"
         );
+        const validationDay = String(selectedDate.getDate()).padStart(2, "0");
+        const validationFormattedDate = `${validationYear}-${validationMonth}-${validationDay}`;
+
+        const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+          member
+        )}&date=${validationFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+
+        console.log(`Checking final availability for ${member}:`, url);
+
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
+          console.log(`Final validation response for ${member}:`, data);
           if (data.status === "busy") {
             busyAttendees.push(member);
+            console.log(`${member} is busy during final validation`);
           }
+        } else {
+          console.error(
+            `Error in final validation for ${member}:`,
+            response.status,
+            response.statusText
+          );
         }
       }
+
+      // Check if selected room is busy
+      if (selectedRoom) {
+        const validationYear = selectedDate.getFullYear();
+        const validationMonth = String(selectedDate.getMonth() + 1).padStart(
+          2,
+          "0"
+        );
+        const validationDay = String(selectedDate.getDate()).padStart(2, "0");
+        const validationFormattedDate = `${validationYear}-${validationMonth}-${validationDay}`;
+
+        const roomUrl = `http://localhost:5000/api/meetings/check-room-availability?room=${encodeURIComponent(
+          selectedRoom
+        )}&date=${validationFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+
+        console.log(
+          `Checking final room availability for ${selectedRoom}:`,
+          roomUrl
+        );
+
+        const roomResponse = await fetch(roomUrl);
+        if (roomResponse.ok) {
+          const roomData = await roomResponse.json();
+          console.log(
+            `Final room validation response for ${selectedRoom}:`,
+            roomData
+          );
+          if (roomData.status === "busy") {
+            alert(
+              `Cannot book meeting. The selected room "${selectedRoom}" is busy during the selected time.`
+            );
+            return;
+          }
+        } else {
+          console.error(
+            `Error in final room validation for ${selectedRoom}:`,
+            roomResponse.status,
+            roomResponse.statusText
+          );
+        }
+      }
+
       if (busyAttendees.length > 0) {
         alert(
           `Cannot book meeting. The following attendees are busy during the selected time: \n${busyAttendees.join(
@@ -554,12 +733,38 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                   required
                 >
                   <option value="">Choose a room</option>
-                  {meetingRooms.map((room) => (
-                    <option key={room} value={room}>
-                      {room}
-                    </option>
-                  ))}
+                  {meetingRooms.map((room) => {
+                    const isBusy = roomBusyMap[room];
+                    return (
+                      <option
+                        key={room}
+                        value={room}
+                        disabled={isBusy}
+                        style={{
+                          color: isBusy ? "#dc2626" : "inherit",
+                          fontStyle: isBusy ? "italic" : "normal",
+                        }}
+                      >
+                        {room} {isBusy ? "(Busy)" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
+                {selectedRoom && roomBusyMap[selectedRoom] && (
+                  <div
+                    style={{
+                      color: "#dc2626",
+                      fontSize: "12px",
+                      marginTop: "4px",
+                      padding: "4px 8px",
+                      backgroundColor: "#fef2f2",
+                      border: "1px solid #fecaca",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    ⚠️ This room is busy during the selected time
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
@@ -571,48 +776,93 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                         <p className="team-members-label">Team Members:</p>
                         {teams
                           .find((t) => t.name === selectedTeam)
-                          ?.members.map((member) => (
-                            <label
-                              key={member}
-                              className="attendee-checkbox"
-                              style={{
-                                opacity: memberBusyMap[member] ? 0.5 : 1,
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedAttendees.includes(member)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedAttendees([
-                                      ...selectedAttendees,
-                                      member,
-                                    ]);
-                                  } else {
-                                    setSelectedAttendees(
-                                      selectedAttendees.filter(
-                                        (a) => a !== member
-                                      )
-                                    );
-                                  }
+                          ?.members.map((member) => {
+                            console.log(
+                              `Rendering member ${member}, busy status:`,
+                              memberBusyMap[member]
+                            );
+                            return (
+                              <label
+                                key={member}
+                                className="attendee-checkbox"
+                                style={{
+                                  opacity: memberBusyMap[member] ? 0.5 : 1,
                                 }}
-                                disabled={!!memberBusyMap[member]}
-                              />
-                              <span className="attendee-name">{member}</span>
-                              {memberBusyMap[member] && (
-                                <span
-                                  style={{
-                                    color: "#c00",
-                                    fontSize: 12,
-                                    marginLeft: 6,
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedAttendees.includes(member)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedAttendees([
+                                        ...selectedAttendees,
+                                        member,
+                                      ]);
+                                    } else {
+                                      setSelectedAttendees(
+                                        selectedAttendees.filter(
+                                          (a) => a !== member
+                                        )
+                                      );
+                                    }
                                   }}
-                                  title="This member is busy during the selected time."
-                                >
-                                  Busy
+                                  disabled={!!memberBusyMap[member]}
+                                />
+                                <span className="attendee-name">
+                                  {member}
+                                  {!selectedStartTime || !selectedEndTime ? (
+                                    <span
+                                      style={{
+                                        color: "#6b7280",
+                                        fontSize: 10,
+                                        marginLeft: 4,
+                                      }}
+                                    >
+                                      (Select time to check availability)
+                                    </span>
+                                  ) : checkingAvailability ? (
+                                    <span
+                                      style={{
+                                        color: "#059669",
+                                        fontSize: 10,
+                                        marginLeft: 4,
+                                      }}
+                                    >
+                                      🔄 Checking...
+                                    </span>
+                                  ) : (
+                                    <span
+                                      style={{
+                                        color: "#6b7280",
+                                        fontSize: 10,
+                                        marginLeft: 4,
+                                      }}
+                                    >
+                                      (Status:{" "}
+                                      {memberBusyMap[member] ? "Busy" : "Free"})
+                                    </span>
+                                  )}
                                 </span>
-                              )}
-                            </label>
-                          ))}
+                                {memberBusyMap[member] && (
+                                  <span
+                                    style={{
+                                      color: "#dc2626",
+                                      fontSize: 12,
+                                      marginLeft: 6,
+                                      fontWeight: "bold",
+                                      backgroundColor: "#fef2f2",
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      border: "1px solid #fecaca",
+                                    }}
+                                    title="This member is busy during the selected time."
+                                  >
+                                    ⚠️ Busy
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })}
                       </div>
                     )}
                   {!selectedTeam && (

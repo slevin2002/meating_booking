@@ -79,6 +79,7 @@ meetingSchema.index({ startTime: 1 });
 meetingSchema.index({ teamId: 1 });
 meetingSchema.index({ status: 1 });
 meetingSchema.index({ createdBy: 1 });
+meetingSchema.index({ attendees: 1 }); // Index for attendee queries
 
 // Virtual for meeting duration in minutes
 meetingSchema.virtual("durationMinutes").get(function () {

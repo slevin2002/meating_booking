@@ -88,23 +88,22 @@ function App() {
 
       // Parse time with proper timezone handling
       const parseTimeWithTimezone = (dateStr: string, timeStr: string) => {
-        const [raw, modifier] = timeStr.split(" ");
-        let [hours, minutes] = raw.split(":").map(Number);
-        if (modifier?.toUpperCase() === "PM" && hours !== 12) hours += 12;
-        if (modifier?.toUpperCase() === "AM" && hours === 12) hours = 0;
+        // Handle both 24-hour format (HH:MM) and 12-hour format (HH:MM AM/PM)
+        let hours, minutes;
+
+        if (timeStr.includes("AM") || timeStr.includes("PM")) {
+          // 12-hour format
+          const [raw, modifier] = timeStr.split(" ");
+          [hours, minutes] = raw.split(":").map(Number);
+          if (modifier?.toUpperCase() === "PM" && hours !== 12) hours += 12;
+          if (modifier?.toUpperCase() === "AM" && hours === 12) hours = 0;
+        } else {
+          // 24-hour format
+          [hours, minutes] = timeStr.split(":").map(Number);
+        }
 
         // Create date in local timezone
         const [year, month, day] = dateStr.split("-").map(Number);
-        const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
-
-        // Create date in local timezone without timezone conversion
-        const yearStr = year.toString();
-        const monthStr = month.toString().padStart(2, "0");
-        const dayStr = day.toString().padStart(2, "0");
-        const hourStr = hours.toString().padStart(2, "0");
-        const minuteStr = minutes.toString().padStart(2, "0");
-
-        // Create date object in local timezone
         const localDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
 
         // Convert to UTC while preserving the local time
@@ -174,6 +173,20 @@ function App() {
         setError(
           "There is already a meeting scheduled for this team at the selected time."
         );
+      } else if (err.message?.includes("Attendee conflict detected")) {
+        // Extract busy attendees from error message if available
+        const busyAttendeesMatch = err.message.match(
+          /attendees are already booked for another meeting during this time: (.+)/
+        );
+        if (busyAttendeesMatch) {
+          setError(
+            `Cannot book meeting. The following attendees are busy: ${busyAttendeesMatch[1]}`
+          );
+        } else {
+          setError(
+            "Cannot book meeting. Some attendees are busy during the selected time."
+          );
+        }
       } else {
         setError(
           err instanceof Error

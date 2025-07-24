@@ -107,6 +107,121 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Check room availability
+router.get("/check-room-availability", async (req, res) => {
+  console.log("Room availability check route hit with params:", req.query);
+  try {
+    const { room, date, startTime, endTime } = req.query;
+    if (!room || !date || !startTime || !endTime) {
+      return res.status(400).json({
+        error:
+          "Missing required query parameters: room, date, startTime, endTime",
+      });
+    }
+
+    // Construct start and end Date objects with proper timezone handling
+    // Parse the date components and create date in local timezone
+    const [year, month, day] = date.split("-").map(Number);
+    const [startHour, startMinute] = startTime.split(":").map(Number);
+    const [endHour, endMinute] = endTime.split(":").map(Number);
+
+    console.log(`DEBUG: Parsing date/time for room ${room}:`);
+    console.log(`  Date: ${date}, Start: ${startTime}, End: ${endTime}`);
+    console.log(`  Parsed: Year=${year}, Month=${month}, Day=${day}`);
+    console.log(`  Parsed: StartHour=${startHour}, StartMinute=${startMinute}`);
+    console.log(`  Parsed: EndHour=${endHour}, EndMinute=${endMinute}`);
+
+    // Create dates in local timezone without timezone conversion
+    const start = new Date(year, month - 1, day, startHour, startMinute, 0, 0);
+    const end = new Date(year, month - 1, day, endHour, endMinute, 0, 0);
+
+    // Convert to UTC while preserving the local time
+    const startUTC = new Date(
+      start.getTime() - start.getTimezoneOffset() * 60000
+    );
+    const endUTC = new Date(end.getTime() - end.getTimezoneOffset() * 60000);
+
+    if (isNaN(startUTC.getTime()) || isNaN(endUTC.getTime())) {
+      return res.status(400).json({ error: "Invalid date or time format" });
+    }
+    if (endUTC <= startUTC) {
+      return res
+        .status(400)
+        .json({ error: "End time must be after start time" });
+    }
+
+    console.log(`Checking availability for room: ${room}`);
+    console.log(
+      `Time range: ${startUTC.toISOString()} to ${endUTC.toISOString()}`
+    );
+    console.log(`Local time range: ${start.toString()} to ${end.toString()}`);
+
+    // Find meetings where this room is booked and times overlap
+    console.log(`DEBUG: Querying for room conflicts for ${room}:`);
+    console.log(
+      `  Query: startTime < ${endUTC.toISOString()} AND endTime > ${startUTC.toISOString()}`
+    );
+
+    const conflicts = await Meeting.find({
+      room: room,
+      status: { $ne: "cancelled" },
+      startTime: { $lt: endUTC },
+      endTime: { $gt: startUTC },
+    }).populate("teamId", "name color");
+
+    // Also get all meetings for this room to debug
+    const allMeetings = await Meeting.find({
+      room: room,
+      status: { $ne: "cancelled" },
+    });
+    console.log(
+      `DEBUG: All meetings for room ${room}:`,
+      allMeetings.map((m) => ({
+        title: m.title,
+        startTime: m.startTime,
+        endTime: m.endTime,
+        room: m.room,
+      }))
+    );
+
+    console.log(
+      `Found conflicts:`,
+      conflicts.map((c) => ({
+        title: c.title,
+        startTime: c.startTime,
+        endTime: c.endTime,
+        room: c.room,
+      }))
+    );
+
+    console.log(
+      `Found ${conflicts.length} conflicting meetings for room ${room}`
+    );
+
+    if (conflicts.length > 0) {
+      console.log("Room is BUSY during this time");
+      return res.json({
+        status: "busy",
+        conflicts,
+        message: `${room} is busy during the selected time`,
+      });
+    } else {
+      console.log("Room is FREE during this time");
+      return res.json({
+        status: "free",
+        conflicts: [],
+        message: `${room} is available during the selected time`,
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Error checking room availability",
+      message: error.message,
+    });
+  }
+});
+
 // Check member availability - must be before /:id route
 router.get("/check-member-availability", async (req, res) => {
   console.log("Availability check route hit with params:", req.query);
@@ -125,28 +240,63 @@ router.get("/check-member-availability", async (req, res) => {
     const [startHour, startMinute] = startTime.split(":").map(Number);
     const [endHour, endMinute] = endTime.split(":").map(Number);
 
+    console.log(`DEBUG: Parsing date/time for ${member}:`);
+    console.log(`  Date: ${date}, Start: ${startTime}, End: ${endTime}`);
+    console.log(`  Parsed: Year=${year}, Month=${month}, Day=${day}`);
+    console.log(`  Parsed: StartHour=${startHour}, StartMinute=${startMinute}`);
+    console.log(`  Parsed: EndHour=${endHour}, EndMinute=${endMinute}`);
+
+    // Create dates in local timezone without timezone conversion
     const start = new Date(year, month - 1, day, startHour, startMinute, 0, 0);
     const end = new Date(year, month - 1, day, endHour, endMinute, 0, 0);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+
+    // Convert to UTC while preserving the local time
+    const startUTC = new Date(
+      start.getTime() - start.getTimezoneOffset() * 60000
+    );
+    const endUTC = new Date(end.getTime() - end.getTimezoneOffset() * 60000);
+    if (isNaN(startUTC.getTime()) || isNaN(endUTC.getTime())) {
       return res.status(400).json({ error: "Invalid date or time format" });
     }
-    if (end <= start) {
+    if (endUTC <= startUTC) {
       return res
         .status(400)
         .json({ error: "End time must be after start time" });
     }
 
     console.log(`Checking availability for member: ${member}`);
-    console.log(`Time range: ${start.toISOString()} to ${end.toISOString()}`);
+    console.log(
+      `Time range: ${startUTC.toISOString()} to ${endUTC.toISOString()}`
+    );
     console.log(`Local time range: ${start.toString()} to ${end.toString()}`);
 
     // Find meetings where this member is an attendee and times overlap
+    console.log(`DEBUG: Querying for conflicts for ${member}:`);
+    console.log(
+      `  Query: startTime < ${endUTC.toISOString()} AND endTime > ${startUTC.toISOString()}`
+    );
+
     const conflicts = await Meeting.find({
       attendees: member,
       status: { $ne: "cancelled" },
-      startTime: { $lt: end },
-      endTime: { $gt: start },
+      startTime: { $lt: endUTC },
+      endTime: { $gt: startUTC },
     }).populate("teamId", "name color");
+
+    // Also get all meetings for this member to debug
+    const allMeetings = await Meeting.find({
+      attendees: member,
+      status: { $ne: "cancelled" },
+    });
+    console.log(
+      `DEBUG: All meetings for ${member}:`,
+      allMeetings.map((m) => ({
+        title: m.title,
+        startTime: m.startTime,
+        endTime: m.endTime,
+        attendees: m.attendees,
+      }))
+    );
 
     console.log(
       `Found conflicts:`,
