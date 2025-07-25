@@ -64,8 +64,26 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   const [memberBusyMap, setMemberBusyMap] = useState<{
     [member: string]: boolean;
   }>({});
+  const [memberConflictDetails, setMemberConflictDetails] = useState<{
+    [member: string]: Array<{
+      title: string;
+      startTime: string;
+      endTime: string;
+      teamName: string;
+      room: string;
+    }>;
+  }>({});
   const [roomBusyMap, setRoomBusyMap] = useState<{
     [room: string]: boolean;
+  }>({});
+  const [roomConflictDetails, setRoomConflictDetails] = useState<{
+    [room: string]: Array<{
+      title: string;
+      startTime: string;
+      endTime: string;
+      teamName: string;
+      attendees: string[];
+    }>;
   }>({});
   const [checkingAvailability, setCheckingAvailability] =
     useState<boolean>(false);
@@ -94,13 +112,9 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   // Check each member's availability when team, start, or end time changes
   React.useEffect(() => {
     const checkAllMembers = async () => {
-      if (
-        !selectedTeam ||
-        !selectedDate ||
-        !selectedStartTime ||
-        !selectedEndTime
-      ) {
+      if (!selectedDate || !selectedStartTime || !selectedEndTime) {
         setMemberBusyMap({});
+        setRoomBusyMap({});
         setCheckingAvailability(false);
         return;
       }
@@ -111,6 +125,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         !timeRegex.test(selectedEndTime)
       ) {
         setMemberBusyMap({});
+        setRoomBusyMap({});
         return;
       }
       // Ensure end time is after start time
@@ -121,56 +136,22 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         (endHour === startHour && endMinute <= startMinute)
       ) {
         setMemberBusyMap({});
+        setRoomBusyMap({});
         return;
       }
-      const teamObj = teams.find((t) => t.name === selectedTeam);
-      if (!teamObj) return;
 
-      setCheckingAvailability(true);
-      const busyMap: { [member: string]: boolean } = {};
-      await Promise.all(
-        teamObj.members.map(async (member) => {
-          try {
-            // Format date consistently to avoid timezone issues
-            const checkYear = selectedDate.getFullYear();
-            const checkMonth = String(selectedDate.getMonth() + 1).padStart(
-              2,
-              "0"
-            );
-            const checkDay = String(selectedDate.getDate()).padStart(2, "0");
-            const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
-
-            const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
-              member
-            )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
-
-            console.log(`Checking availability for ${member}:`, url);
-
-            const response = await fetch(url);
-            if (response.ok) {
-              const data = await response.json();
-              console.log(`Response for ${member}:`, data);
-              busyMap[member] = data.status === "busy";
-            } else {
-              console.error(
-                `Error checking ${member}:`,
-                response.status,
-                response.statusText
-              );
-              busyMap[member] = false;
-            }
-          } catch (error) {
-            console.error(`Exception checking ${member}:`, error);
-            busyMap[member] = false;
-          }
-        })
-      );
-      console.log("Final busy map:", busyMap);
-      console.log("Setting memberBusyMap state with:", busyMap);
-      setMemberBusyMap(busyMap);
-
-      // Check room availability
+      // Check room availability regardless of team selection
       const roomBusyMap: { [room: string]: boolean } = {};
+      const roomConflictDetailsMap: {
+        [room: string]: Array<{
+          title: string;
+          startTime: string;
+          endTime: string;
+          teamName: string;
+          attendees: string[];
+        }>;
+      } = {};
+
       await Promise.all(
         meetingRooms.map(async (room) => {
           try {
@@ -194,6 +175,19 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
               const data = await response.json();
               console.log(`Room response for ${room}:`, data);
               roomBusyMap[room] = data.status === "busy";
+
+              // Store conflict details if room is busy
+              if (data.status === "busy" && data.conflicts) {
+                roomConflictDetailsMap[room] = data.conflicts.map(
+                  (conflict: any) => ({
+                    title: conflict.title,
+                    startTime: conflict.startTime,
+                    endTime: conflict.endTime,
+                    teamName: conflict.teamId?.name || "Unknown Team",
+                    attendees: conflict.attendees || [],
+                  })
+                );
+              }
             } else {
               console.error(
                 `Error checking room ${room}:`,
@@ -209,8 +203,84 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         })
       );
 
-      console.log("Final room busy map:", roomBusyMap);
       setRoomBusyMap(roomBusyMap);
+      setRoomConflictDetails(roomConflictDetailsMap);
+
+      // Only check member availability if a team is selected
+      if (!selectedTeam) {
+        setCheckingAvailability(false);
+        return;
+      }
+
+      const teamObj = teams.find((t) => t.name === selectedTeam);
+      if (!teamObj) return;
+
+      setCheckingAvailability(true);
+      const busyMap: { [member: string]: boolean } = {};
+      const conflictDetailsMap: {
+        [member: string]: Array<{
+          title: string;
+          startTime: string;
+          endTime: string;
+          teamName: string;
+          room: string;
+        }>;
+      } = {};
+
+      await Promise.all(
+        teamObj.members.map(async (member) => {
+          try {
+            // Format date consistently to avoid timezone issues
+            const checkYear = selectedDate.getFullYear();
+            const checkMonth = String(selectedDate.getMonth() + 1).padStart(
+              2,
+              "0"
+            );
+            const checkDay = String(selectedDate.getDate()).padStart(2, "0");
+            const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
+
+            const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+              member
+            )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+
+            console.log(`Checking availability for ${member}:`, url);
+
+            const response = await fetch(url);
+            if (response.ok) {
+              const data = await response.json();
+              console.log(`Response for ${member}:`, data);
+              busyMap[member] = data.status === "busy";
+
+              // Store conflict details if member is busy
+              if (data.status === "busy" && data.conflicts) {
+                conflictDetailsMap[member] = data.conflicts.map(
+                  (conflict: any) => ({
+                    title: conflict.title,
+                    startTime: conflict.startTime,
+                    endTime: conflict.endTime,
+                    teamName: conflict.teamId?.name || "Unknown Team",
+                    room: conflict.room,
+                  })
+                );
+              }
+            } else {
+              console.error(
+                `Error checking ${member}:`,
+                response.status,
+                response.statusText
+              );
+              busyMap[member] = false;
+            }
+          } catch (error) {
+            console.error(`Exception checking ${member}:`, error);
+            busyMap[member] = false;
+          }
+        })
+      );
+      console.log("Final busy map:", busyMap);
+      console.log("Setting memberBusyMap state with:", busyMap);
+      setMemberBusyMap(busyMap);
+      setMemberConflictDetails(conflictDetailsMap);
       setCheckingAvailability(false);
 
       // Auto-deselect any busy members from selectedAttendees
@@ -230,7 +300,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       );
     };
     checkAllMembers();
-  }, [selectedTeam, selectedDate, selectedStartTime, selectedEndTime, teams]);
+  }, [selectedDate, selectedStartTime, selectedEndTime, teams]);
 
   // Generate calendar days
   const getDaysInMonth = (date: Date) => {
@@ -912,6 +982,10 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                   <option value="">Choose a room</option>
                   {meetingRooms.map((room) => {
                     const isBusy = roomBusyMap[room];
+                    const roomConflicts = roomConflictDetails[room] || [];
+                    const firstConflict =
+                      roomConflicts.length > 0 ? roomConflicts[0] : null;
+
                     return (
                       <option
                         key={room}
@@ -922,7 +996,14 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                           fontStyle: isBusy ? "italic" : "normal",
                         }}
                       >
-                        {room} {isBusy ? "(Busy)" : ""}
+                        {room}{" "}
+                        {isBusy
+                          ? `(Busy - until ${
+                              firstConflict
+                                ? formatDateTime(firstConflict.endTime)
+                                : "unknown"
+                            })`
+                          : ""}
                       </option>
                     );
                   })}
@@ -940,6 +1021,24 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                     }}
                   >
                     ⚠️ This room is busy during the selected time
+                    {roomConflictDetails[selectedRoom] &&
+                      roomConflictDetails[selectedRoom].length > 0 && (
+                        <div style={{ marginTop: "4px" }}>
+                          <strong>Conflicts:</strong>
+                          {roomConflictDetails[selectedRoom].map(
+                            (conflict, idx) => (
+                              <div
+                                key={idx}
+                                style={{ marginLeft: "8px", fontSize: "11px" }}
+                              >
+                                • {conflict.title} (
+                                {formatDateTime(conflict.startTime)} -{" "}
+                                {formatDateTime(conflict.endTime)})
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
                   </div>
                 )}
               </div>
@@ -958,6 +1057,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                               `Rendering member ${member}, busy status:`,
                               memberBusyMap[member]
                             );
+                            const memberConflicts =
+                              memberConflictDetails[member] || [];
                             return (
                               <label
                                 key={member}
@@ -1034,9 +1135,53 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                                     }}
                                     title="This member is busy during the selected time."
                                   >
-                                    ⚠️ Busy
+                                    ⚠️ Busy - until{" "}
+                                    {memberConflictDetails[member] &&
+                                    memberConflictDetails[member].length > 0
+                                      ? formatDateTime(
+                                          memberConflictDetails[member][0]
+                                            .endTime
+                                        )
+                                      : "unknown"}
                                   </span>
                                 )}
+                                {memberBusyMap[member] &&
+                                  memberConflicts.length > 0 && (
+                                    <div
+                                      style={{
+                                        marginTop: "4px",
+                                        marginLeft: "20px",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          fontSize: "11px",
+                                          color: "#dc2626",
+                                        }}
+                                      >
+                                        <strong>Conflicts:</strong>
+                                        {memberConflicts.map(
+                                          (conflict, idx) => (
+                                            <div
+                                              key={idx}
+                                              style={{
+                                                marginLeft: "8px",
+                                                fontSize: "10px",
+                                              }}
+                                            >
+                                              • {conflict.title} (
+                                              {formatDateTime(
+                                                conflict.startTime
+                                              )}{" "}
+                                              -{" "}
+                                              {formatDateTime(conflict.endTime)}
+                                              )
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                               </label>
                             );
                           })}
