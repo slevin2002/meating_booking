@@ -13,10 +13,12 @@ import {
   FaTimes,
   FaVideo,
   FaInfoCircle,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { userAPI } from "../services/api";
-import Select from "react-select";
+import Select, { MultiValue, OptionsOrGroups, GroupBase } from "react-select";
+import { useCallback } from "react";
 
 interface TimeSlot {
   id: string;
@@ -65,18 +67,6 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
   const [memberConflicts, setMemberConflicts] = useState<MemberConflict[]>([]);
   const [checkingConflicts, setCheckingConflicts] = useState<boolean>(false);
-  const [memberBusyMap, setMemberBusyMap] = useState<{
-    [member: string]: boolean;
-  }>({});
-  const [memberConflictDetails, setMemberConflictDetails] = useState<{
-    [member: string]: Array<{
-      title: string;
-      startTime: string;
-      endTime: string;
-      teamName: string;
-      room: string;
-    }>;
-  }>({});
   const [roomBusyMap, setRoomBusyMap] = useState<{
     [room: string]: boolean;
   }>({});
@@ -101,16 +91,20 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   const [dropdownAddedEmployees, setDropdownAddedEmployees] = useState<
     string[]
   >([]);
+  // --- TEAM MEMBERS AVAILABILITY STATE ---
+  const [memberBusyMap, setMemberBusyMap] = useState<{
+    [member: string]: boolean;
+  }>({});
+  const [memberConflictDetails, setMemberConflictDetails] = useState<{
+    [member: string]: { endTime: string }[];
+  }>({});
 
-  // Debug memberBusyMap changes
-  useEffect(() => {
-    console.log("memberBusyMap changed:", memberBusyMap);
-  }, [memberBusyMap]);
-
-  // Debug roomBusyMap changes
-  useEffect(() => {
-    console.log("roomBusyMap changed:", roomBusyMap);
-  }, [roomBusyMap]);
+  // --- DROPDOWN EMPLOYEE AVAILABILITY STATE ---
+  const [employeeAvailability, setEmployeeAvailability] = useState<{
+    [name: string]: { status: "busy" | "free"; endTime?: string };
+  }>({});
+  const [checkingDropdownAvailability, setCheckingDropdownAvailability] =
+    useState(false);
 
   // Fetch all employees when booking form is opened
   useEffect(() => {
@@ -130,198 +124,122 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     }
   }, [showBookingForm]);
 
-  // Check each member's availability when team, start, or end time changes
-  React.useEffect(() => {
-    const checkAllMembers = async () => {
-      if (!selectedDate || !selectedStartTime || !selectedEndTime) {
-        setMemberBusyMap({});
-        setRoomBusyMap({});
-        setCheckingAvailability(false);
-        return;
-      }
-      // Validate time format (HH:mm or HH:mm:ss)
-      const timeRegex = /^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
-      if (
-        !timeRegex.test(selectedStartTime) ||
-        !timeRegex.test(selectedEndTime)
-      ) {
-        setMemberBusyMap({});
-        setRoomBusyMap({});
-        return;
-      }
-      // Ensure end time is after start time
-      const [startHour, startMinute] = selectedStartTime.split(":").map(Number);
-      const [endHour, endMinute] = selectedEndTime.split(":").map(Number);
-      if (
-        endHour < startHour ||
-        (endHour === startHour && endMinute <= startMinute)
-      ) {
-        setMemberBusyMap({});
-        setRoomBusyMap({});
-        return;
-      }
+  // Build unique list of all employees (team members + all employees)
+  const uniqueEmployeeNames = React.useMemo(() => {
+    const teamMemberNames =
+      selectedTeam && teams.find((t) => t._id === selectedTeam)
+        ? teams.find((t) => t._id === selectedTeam)!.members
+        : [];
+    const allNames = [
+      ...teamMemberNames,
+      ...allEmployees.map((emp) => emp.name),
+    ];
+    // Remove duplicates
+    return Array.from(new Set(allNames));
+  }, [selectedTeam, teams, allEmployees]);
 
-      // Check room availability regardless of team selection
-      const roomBusyMap: { [room: string]: boolean } = {};
-      const roomConflictDetailsMap: {
-        [room: string]: Array<{
-          title: string;
-          startTime: string;
-          endTime: string;
-          teamName: string;
-          attendees: string[];
-        }>;
+  // On date/time/team change, check availability for all unique employees
+  useEffect(() => {
+    if (!selectedDate || !selectedStartTime || !selectedEndTime) {
+      setEmployeeAvailability({});
+      return;
+    }
+    setCheckingDropdownAvailability(true);
+    const checkYear = selectedDate.getFullYear();
+    const checkMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const checkDay = String(selectedDate.getDate()).padStart(2, "0");
+    const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
+    (async () => {
+      const availabilityMap: {
+        [name: string]: { status: "busy" | "free"; endTime?: string };
       } = {};
-
       await Promise.all(
-        meetingRooms.map(async (room) => {
+        uniqueEmployeeNames.map(async (name) => {
           try {
-            // Format date consistently to avoid timezone issues
-            const checkYear = selectedDate.getFullYear();
-            const checkMonth = String(selectedDate.getMonth() + 1).padStart(
-              2,
-              "0"
-            );
-            const checkDay = String(selectedDate.getDate()).padStart(2, "0");
-            const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
-
-            const url = `http://localhost:5000/api/meetings/check-room-availability?room=${encodeURIComponent(
-              room
+            const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+              name
             )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
-
-            console.log(`Checking room availability for ${room}:`, url);
-
             const response = await fetch(url);
             if (response.ok) {
               const data = await response.json();
-              console.log(`Room response for ${room}:`, data);
-              roomBusyMap[room] = data.status === "busy";
-
-              // Store conflict details if room is busy
-              if (data.status === "busy" && data.conflicts) {
-                roomConflictDetailsMap[room] = data.conflicts.map(
-                  (conflict: any) => ({
-                    title: conflict.title,
-                    startTime: conflict.startTime,
-                    endTime: conflict.endTime,
-                    teamName: conflict.teamId?.name || "Unknown Team",
-                    attendees: conflict.attendees || [],
-                  })
-                );
+              if (
+                data.status === "busy" &&
+                data.conflicts &&
+                data.conflicts.length > 0
+              ) {
+                availabilityMap[name] = {
+                  status: "busy",
+                  endTime: data.conflicts[0].endTime,
+                };
+              } else {
+                availabilityMap[name] = { status: data.status };
               }
             } else {
-              console.error(
-                `Error checking room ${room}:`,
-                response.status,
-                response.statusText
-              );
-              roomBusyMap[room] = false;
+              availabilityMap[name] = { status: "free" };
             }
-          } catch (error) {
-            console.error(`Exception checking room ${room}:`, error);
-            roomBusyMap[room] = false;
+          } catch {
+            availabilityMap[name] = { status: "free" };
           }
         })
       );
+      setEmployeeAvailability(availabilityMap);
+      setCheckingDropdownAvailability(false);
+    })();
+  }, [uniqueEmployeeNames, selectedDate, selectedStartTime, selectedEndTime]);
 
-      setRoomBusyMap(roomBusyMap);
-      setRoomConflictDetails(roomConflictDetailsMap);
-
-      // Only check member availability if a team is selected
-      if (!selectedTeam) {
-        setCheckingAvailability(false);
-        return;
-      }
-
-      const teamObj = teams.find((t) => t._id === selectedTeam);
-      if (!teamObj) return;
-
-      setCheckingAvailability(true);
+  // --- TEAM MEMBERS AVAILABILITY CHECK ---
+  useEffect(() => {
+    if (
+      !selectedTeam ||
+      !selectedDate ||
+      !selectedStartTime ||
+      !selectedEndTime
+    ) {
+      setMemberBusyMap({});
+      setMemberConflictDetails({});
+      return;
+    }
+    const teamObj = teams.find((t) => t._id === selectedTeam);
+    if (!teamObj) return;
+    const checkYear = selectedDate.getFullYear();
+    const checkMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const checkDay = String(selectedDate.getDate()).padStart(2, "0");
+    const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
+    (async () => {
       const busyMap: { [member: string]: boolean } = {};
-      const conflictDetailsMap: {
-        [member: string]: Array<{
-          title: string;
-          startTime: string;
-          endTime: string;
-          teamName: string;
-          room: string;
-        }>;
-      } = {};
-
+      const conflictDetailsMap: { [member: string]: { endTime: string }[] } =
+        {};
       await Promise.all(
         teamObj.members.map(async (member) => {
           try {
-            // Format date consistently to avoid timezone issues
-            const checkYear = selectedDate.getFullYear();
-            const checkMonth = String(selectedDate.getMonth() + 1).padStart(
-              2,
-              "0"
-            );
-            const checkDay = String(selectedDate.getDate()).padStart(2, "0");
-            const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
-
             const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
               member
             )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
-
-            console.log(`Checking availability for ${member}:`, url);
-
             const response = await fetch(url);
             if (response.ok) {
               const data = await response.json();
-              console.log(`Response for ${member}:`, data);
               busyMap[member] = data.status === "busy";
-
-              // Store conflict details if member is busy
-              if (data.status === "busy" && data.conflicts) {
-                conflictDetailsMap[member] = data.conflicts.map(
-                  (conflict: any) => ({
-                    title: conflict.title,
-                    startTime: conflict.startTime,
-                    endTime: conflict.endTime,
-                    teamName: conflict.teamId?.name || "Unknown Team",
-                    room: conflict.room,
-                  })
-                );
+              if (
+                data.status === "busy" &&
+                data.conflicts &&
+                data.conflicts.length > 0
+              ) {
+                conflictDetailsMap[member] = [
+                  { endTime: data.conflicts[0].endTime },
+                ];
               }
             } else {
-              console.error(
-                `Error checking ${member}:`,
-                response.status,
-                response.statusText
-              );
               busyMap[member] = false;
             }
-          } catch (error) {
-            console.error(`Exception checking ${member}:`, error);
+          } catch {
             busyMap[member] = false;
           }
         })
       );
-      console.log("Final busy map:", busyMap);
-      console.log("Setting memberBusyMap state with:", busyMap);
       setMemberBusyMap(busyMap);
       setMemberConflictDetails(conflictDetailsMap);
-      setCheckingAvailability(false);
-
-      // Auto-deselect any busy members from selectedAttendees
-      setSelectedAttendees((prev) => prev.filter((member) => !busyMap[member]));
-
-      // Log the selected date and time for debugging
-      const debugYear = selectedDate.getFullYear();
-      const debugMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
-      const debugDay = String(selectedDate.getDate()).padStart(2, "0");
-      const debugFormattedDate = `${debugYear}-${debugMonth}-${debugDay}`;
-      console.log("Selected date for booking:", debugFormattedDate);
-      console.log(
-        "Selected time range:",
-        selectedStartTime,
-        "-",
-        selectedEndTime
-      );
-    };
-    checkAllMembers();
-  }, [selectedDate, selectedStartTime, selectedEndTime, teams]);
+    })();
+  }, [selectedTeam, selectedDate, selectedStartTime, selectedEndTime, teams]);
 
   // Generate calendar days
   const getDaysInMonth = (date: Date) => {
@@ -789,6 +707,60 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     return avatarColors[Math.abs(hash) % avatarColors.length];
   };
 
+  // --- DROPDOWN EMPLOYEE AVAILABILITY CHECK ---
+  const checkAllEmployeesAvailability = useCallback(async () => {
+    if (!selectedDate || !selectedStartTime || !selectedEndTime) {
+      setEmployeeAvailability({});
+      return;
+    }
+    setCheckingDropdownAvailability(true);
+    const checkYear = selectedDate.getFullYear();
+    const checkMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const checkDay = String(selectedDate.getDate()).padStart(2, "0");
+    const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
+    (async () => {
+      const availabilityMap: {
+        [name: string]: { status: "busy" | "free"; endTime?: string };
+      } = {};
+      await Promise.all(
+        allEmployees.map(async (emp) => {
+          try {
+            const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+              emp.name
+            )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+            const response = await fetch(url);
+            if (response.ok) {
+              const data = await response.json();
+              if (
+                data.status === "busy" &&
+                data.conflicts &&
+                data.conflicts.length > 0
+              ) {
+                availabilityMap[emp.name] = {
+                  status: "busy",
+                  endTime: data.conflicts[0].endTime,
+                };
+              } else {
+                availabilityMap[emp.name] = { status: data.status };
+              }
+            } else {
+              availabilityMap[emp.name] = { status: "free" };
+            }
+          } catch {
+            availabilityMap[emp.name] = { status: "free" };
+          }
+        })
+      );
+      setEmployeeAvailability(availabilityMap);
+      setCheckingDropdownAvailability(false);
+    })();
+  }, [allEmployees, selectedDate, selectedStartTime, selectedEndTime]);
+
+  // Run check on dropdown open or time change
+  useEffect(() => {
+    checkAllEmployeesAvailability();
+  }, [checkAllEmployeesAvailability]);
+
   return (
     <div className="calendar-center-bg">
       <div className="calendar-center-container">
@@ -1113,7 +1085,20 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                                 memberBusyMap[member]
                               );
                               const memberConflicts =
-                                memberConflictDetails[member] || [];
+                                memberBusyMap[member] &&
+                                memberConflictDetails[member]?.length > 0
+                                  ? [
+                                      {
+                                        title: "Busy",
+                                        startTime: "Now",
+                                        endTime:
+                                          memberConflictDetails[member]?.[0]
+                                            ?.endTime,
+                                        teamName: "Unknown Team",
+                                        room: "Unknown Room",
+                                      },
+                                    ]
+                                  : [];
                               return (
                                 <label
                                   key={member}
@@ -1139,7 +1124,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                                         );
                                       }
                                     }}
-                                    disabled={!!memberBusyMap[member]}
+                                    disabled={memberBusyMap[member]}
                                   />
                                   <span className="attendee-name">
                                     {member}
@@ -1194,11 +1179,11 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                                       title="This member is busy during the selected time."
                                     >
                                       ⚠️ Busy - until{" "}
-                                      {memberConflictDetails[member] &&
-                                      memberConflictDetails[member].length > 0
+                                      {memberConflictDetails[member]?.[0]
+                                        ?.endTime
                                         ? formatDateTime(
-                                            memberConflictDetails[member][0]
-                                              .endTime
+                                            memberConflictDetails[member]?.[0]
+                                              ?.endTime
                                           )
                                         : "unknown"}
                                     </span>
@@ -1292,30 +1277,101 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                   >
                     <div style={{ flex: 3, minWidth: 220 }}>
                       <Select
-                        options={allEmployees
-                          .filter(
-                            (emp) => !selectedAttendees.includes(emp.name)
-                          )
-                          .map((emp) => ({ value: emp.name, label: emp.name }))}
+                        isMulti
+                        closeMenuOnSelect={false}
+                        options={allEmployees.map((emp) => {
+                          const avail = employeeAvailability[emp.name];
+                          const isBusy = avail && avail.status === "busy";
+                          return {
+                            value: emp.name,
+                            label: emp.name,
+                            isDisabled: isBusy,
+                            endTime: avail && avail.endTime,
+                          };
+                        })}
+                        formatOptionLabel={(option: any) => {
+                          const avail = employeeAvailability[option.value];
+                          if (avail && avail.status === "busy") {
+                            let endTimeStr = "";
+                            if (avail.endTime) {
+                              const endDate = new Date(avail.endTime);
+                              endTimeStr = endDate.toLocaleString(undefined, {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
+                              });
+                            }
+                            return (
+                              <span
+                                style={{
+                                  color: "#dc2626",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                <span style={{ marginRight: 6, fontSize: 15 }}>
+                                  ⚠️
+                                </span>
+                                {option.value}{" "}
+                                <span
+                                  style={{
+                                    marginLeft: 8,
+                                    fontSize: 13,
+                                    color: "#dc2626",
+                                    background: "#fdecea",
+                                    borderRadius: 6,
+                                    padding: "2px 8px",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  Busy
+                                </span>
+                              </span>
+                            );
+                          }
+                          return <span>{option.value}</span>;
+                        }}
                         value={
-                          selectedEmployee
-                            ? {
-                                value: selectedEmployee,
-                                label: selectedEmployee,
-                              }
-                            : null
+                          dropdownAddedEmployees.map((name) => ({
+                            value: name,
+                            label: name,
+                          })) as MultiValue<{ value: string; label: string }>
                         }
-                        onChange={(option) =>
-                          setSelectedEmployee(option ? option.value : "")
-                        }
-                        isClearable
+                        onChange={(
+                          selected: MultiValue<{ value: string; label: string }>
+                        ) => {
+                          const selectedNames = (selected || []).map(
+                            (opt) => opt.value
+                          );
+                          setDropdownAddedEmployees(selectedNames);
+                          const newAttendees = [
+                            ...selectedAttendees.filter(
+                              (a) => !dropdownAddedEmployees.includes(a)
+                            ),
+                            ...selectedNames.filter(
+                              (n) => !selectedAttendees.includes(n)
+                            ),
+                          ];
+                          setSelectedAttendees(newAttendees);
+                        }}
+                        isClearable={false}
                         isSearchable
-                        placeholder="Type to search employees..."
+                        placeholder={
+                          checkingDropdownAvailability
+                            ? "Checking availability..."
+                            : "Type to search employees..."
+                        }
                         isDisabled={
-                          loadingEmployees || allEmployees.length === 0
+                          loadingEmployees ||
+                          allEmployees.length === 0 ||
+                          checkingDropdownAvailability
                         }
                         styles={{
-                          control: (base, state) => ({
+                          control: (base: any, state: any) => ({
                             ...base,
                             borderRadius: 8,
                             borderColor: state.isFocused
@@ -1327,14 +1383,15 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                             minHeight: 44,
                             fontSize: 15,
                           }),
-                          option: (base, state) => ({
+                          option: (base: any, state: any) => ({
                             ...base,
                             background: state.isFocused ? "#e0e7ff" : "#fff",
-                            color: "#222",
+                            color: state.isDisabled ? "#aaa" : "#222",
                             fontSize: 15,
                             paddingLeft: 16,
+                            opacity: state.isDisabled ? 0.6 : 1,
                           }),
-                          menu: (base) => ({
+                          menu: (base: any) => ({
                             ...base,
                             zIndex: 9999,
                             borderRadius: 8,
@@ -1344,39 +1401,6 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                         tabSelectsValue={false}
                       />
                     </div>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      style={{
-                        minWidth: 80,
-                        maxWidth: 90,
-                        height: 40,
-                        fontSize: 15,
-                        padding: "0 12px",
-                      }}
-                      disabled={
-                        !selectedEmployee ||
-                        selectedAttendees.includes(selectedEmployee)
-                      }
-                      onClick={() => {
-                        if (
-                          selectedEmployee &&
-                          !selectedAttendees.includes(selectedEmployee)
-                        ) {
-                          setSelectedAttendees([
-                            ...selectedAttendees,
-                            selectedEmployee,
-                          ]);
-                          setDropdownAddedEmployees([
-                            ...dropdownAddedEmployees,
-                            selectedEmployee,
-                          ]);
-                          setSelectedEmployee("");
-                        }
-                      }}
-                    >
-                      Add
-                    </button>
                   </div>
                   {loadingEmployees && (
                     <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
