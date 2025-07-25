@@ -260,11 +260,11 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     return days;
   };
 
-  // Generate 15-minute time slots from 9:00 AM to 6:00 PM
+  // Generate 15-minute time slots from 9:00 AM to 7:00 PM (end time inclusive for end slot)
   const generateTimeSlots = () => {
     const slots: TimeSlot[] = [];
     const startHour = 9; // 9 AM
-    const endHour = 18; // 6 PM
+    const endHour = 19; // 7 PM (inclusive for end time)
 
     for (let hour = startHour; hour < endHour; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
@@ -287,6 +287,17 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         });
       }
     }
+    // Add the final 7:00 PM slot for end time only
+    slots.push({
+      id: `19-0`,
+      time: "19:00",
+      displayTime: new Date(`2000-01-01T19:00:00`).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      available: true,
+    });
     return slots;
   };
 
@@ -760,6 +771,27 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   useEffect(() => {
     checkAllEmployeesAvailability();
   }, [checkAllEmployeesAvailability]);
+
+  // When team, time, or availability changes, auto-select all free team members
+  useEffect(() => {
+    if (!selectedTeam || !selectedStartTime || !selectedEndTime) return;
+    const teamObj = teams.find((t) => t._id === selectedTeam);
+    if (!teamObj) return;
+    // Only select free members (not busy)
+    const freeMembers = teamObj.members.filter(
+      (member) => !memberBusyMap[member]
+    );
+    // Only auto-select if user hasn't manually changed selection (i.e., if selectedAttendees doesn't already include any busy members or is empty)
+    // If user has already unchecked a free member, don't re-add them
+    // We'll only auto-select if selectedAttendees is empty or only contains previously busy members
+    const busySelected = selectedAttendees.filter((a) => memberBusyMap[a]);
+    if (
+      selectedAttendees.length === 0 ||
+      busySelected.length === selectedAttendees.length
+    ) {
+      setSelectedAttendees(freeMembers);
+    }
+  }, [selectedTeam, selectedStartTime, selectedEndTime, memberBusyMap, teams]);
 
   return (
     <div className="calendar-center-bg">
