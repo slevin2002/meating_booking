@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Meeting, TimeSlot, Booking } from "./types";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import MainLayout from "./components/MainLayout";
 import Calendar from "./components/Calendar";
 import MeetingList from "./components/MeetingList";
@@ -284,16 +289,24 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <MainLayout
-              meetings={meetings}
-              teams={teams}
-              onDeleteMeeting={handleDeleteMeeting}
-            />
-          }
-        />
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<Navigate to="/calendar" replace />} />
+          <Route path="calendar" element={<Calendar teams={teams} />} />
+          <Route
+            path="meetings"
+            element={
+              <MeetingList
+                meetings={meetings}
+                teams={teams}
+                onDeleteMeeting={handleDeleteMeeting}
+              />
+            }
+          />
+          <Route path="teams" element={<TeamOverview />} />
+          <Route path="availability" element={<AllEmployeesAvailability />} />
+          <Route path="employees" element={<AllEmployees teams={teams} />} />
+          <Route path="rooms" element={<AllRooms teams={teams} />} />
+        </Route>
         <Route path="/meeting/:id" element={<MeetingDetails />} />
       </Routes>
     </Router>

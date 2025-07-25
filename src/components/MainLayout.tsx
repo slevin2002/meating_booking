@@ -1,69 +1,42 @@
-import React, { useState } from "react";
-import Calendar from "./Calendar";
-import MeetingList from "./MeetingList";
-import TeamOverview from "./TeamOverview";
-import AllEmployeesAvailability from "./AllEmployeesAvailability";
-import AllEmployees from "./AllEmployees";
-import AllRooms from "./AllRooms";
-
-interface MainLayoutProps {
-  meetings: any[];
-  teams: any[];
-  onDeleteMeeting: (id: string) => void;
-  children?: React.ReactNode;
-}
+import React from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
 const tabs = [
-  { id: "calendar", label: "Calendar", icon: "📅" },
-  { id: "meetings", label: "Meetings", icon: "📋" },
-  { id: "teams", label: "Teams", icon: "👥" },
-  { id: "availability", label: "Availability", icon: "✅" },
-  { id: "employees", label: "Employees", icon: "🧑‍💼" },
-  { id: "rooms", label: "Rooms", icon: "🏢" },
+  { id: "calendar", label: "Calendar", icon: "📅", path: "/calendar" },
+  { id: "meetings", label: "Meetings", icon: "📋", path: "/meetings" },
+  { id: "teams", label: "Teams", icon: "👥", path: "/teams" },
+  {
+    id: "availability",
+    label: "Availability",
+    icon: "✅",
+    path: "/availability",
+  },
+  { id: "employees", label: "Employees", icon: "🧑‍💼", path: "/employees" },
+  { id: "rooms", label: "Rooms", icon: "🏢", path: "/rooms" },
 ];
 
-const MainLayout: React.FC<MainLayoutProps> = ({
-  meetings,
-  teams,
-  onDeleteMeeting,
-  children,
-}) => {
-  const [activeTab, setActiveTab] = useState("calendar");
+const MainLayout: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <div className="app">
-      <div className="header">
-        <h1>Meeting Booking App</h1>
-        <p>Schedule meetings for your 12 project teams</p>
+      <div className="tab-navigation">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`tab-btn${
+              location.pathname === tab.path ? " active" : ""
+            }`}
+            onClick={() => navigate(tab.path)}
+          >
+            <span className="tab-icon">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
       </div>
-      <div className="container">
-        <div className="tab-navigation">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <span className="tab-icon">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className="tab-content">
-          {activeTab === "calendar" && <Calendar teams={teams} />}
-          {activeTab === "meetings" && (
-            <MeetingList
-              meetings={meetings}
-              teams={teams}
-              onDeleteMeeting={onDeleteMeeting}
-            />
-          )}
-          {activeTab === "teams" && <TeamOverview />}
-          {activeTab === "availability" && <AllEmployeesAvailability />}
-          {activeTab === "employees" && <AllEmployees teams={teams} />}
-          {activeTab === "rooms" && <AllRooms teams={teams} />}
-        </div>
-        {children}
+      <div className="tab-content">
+        <Outlet />
       </div>
     </div>
   );
