@@ -206,7 +206,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         return;
       }
 
-      const teamObj = teams.find((t) => t.name === selectedTeam);
+      const teamObj = teams.find((t) => t._id === selectedTeam);
       if (!teamObj) return;
 
       setCheckingAvailability(true);
@@ -655,7 +655,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         date: localDateString,
         startTime: selectedStartTime,
         endTime: selectedEndTime,
-        team: selectedTeam,
+        teamId: selectedTeam,
         title: meetingTitle,
         room: selectedRoom,
         attendees: selectedAttendees,
@@ -876,7 +876,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                   >
                     <option value="">Choose a team</option>
                     {teams.map((team) => (
-                      <option key={team._id} value={team.name}>
+                      <option key={team._id} value={team._id}>
                         {team.name} - {team.project}
                       </option>
                     ))}
@@ -1074,11 +1074,11 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                   <label>Select Attendees:</label>
                   <div className="attendees-selection">
                     {selectedTeam &&
-                      teams.find((t) => t.name === selectedTeam) && (
+                      teams.find((t) => t._id === selectedTeam) && (
                         <div className="team-members">
                           <p className="team-members-label">Team Members:</p>
                           {teams
-                            .find((t) => t.name === selectedTeam)
+                            .find((t) => t._id === selectedTeam)
                             ?.members.map((member) => {
                               console.log(
                                 `Rendering member ${member}, busy status:`,
@@ -1317,15 +1317,56 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                     }}
                   >
                     <div>
-                      <div className="meeting-title-row">
-                        <div className="meeting-title">{meeting.title}</div>
-                      </div>
+                      {/* Remove the meeting title */}
                       <div className="meeting-details-single-line">
                         {meeting.teamName && (
-                          <span>Team: {meeting.teamName}</span>
+                          <span style={{ fontWeight: 700, color: "#333" }}>
+                            Team:
+                          </span>
                         )}
-                        <span style={{ marginLeft: 12 }}>
-                          {meeting.startTime?.slice(11, 16)} -{" "}
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            color: "#666",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {meeting.teamName}
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: 16,
+                            fontWeight: 700,
+                            color: "#333",
+                          }}
+                        >
+                          Start:
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: 4,
+                            color: "#666",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {meeting.startTime?.slice(11, 16)}
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: 12,
+                            fontWeight: 700,
+                            color: "#333",
+                          }}
+                        >
+                          End:
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: 4,
+                            color: "#666",
+                            fontWeight: 500,
+                          }}
+                        >
                           {meeting.endTime?.slice(11, 16)}
                         </span>
                       </div>

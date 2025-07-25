@@ -67,7 +67,8 @@ export interface Booking {
   date: string;
   startTime: string;
   endTime: string;
-  team: string;
+  team?: string; // Make optional for legacy compatibility
+  teamId?: string; // Add teamId for new booking flow
   title: string;
   room: string;
   attendees: string[];

@@ -144,11 +144,14 @@ function App() {
 
       if (duration <= 0) throw new Error("End time must be after start time.");
 
-      // Find team by name and get its ID
-      const selectedTeam = teams.find((team) => team.name === booking.team);
+      // Find team by _id and get its ID
+      if (!booking.teamId) {
+        throw new Error("No team selected for booking.");
+      }
+      const selectedTeam = teams.find((team) => team._id === booking.teamId);
       if (!selectedTeam) {
         throw new Error(
-          `Team "${booking.team}" not found. Please select a valid team.`
+          `Team with ID "${booking.teamId}" not found. Please select a valid team.`
         );
       }
 
@@ -157,11 +160,11 @@ function App() {
 
       const meetingData = {
         title: booking.title,
-        description: `Meeting for ${booking.team}`,
+        description: `Meeting for ${selectedTeam.name}`,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         duration,
-        teamId: selectedTeam._id, // Use the actual MongoDB ObjectId
+        teamId: booking.teamId, // Now always a string
         room: booking.room,
         attendees: booking.attendees || [],
         status: "scheduled",
@@ -291,7 +294,12 @@ function App() {
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Navigate to="/calendar" replace />} />
-          <Route path="calendar" element={<Calendar teams={teams} />} />
+          <Route
+            path="calendar"
+            element={
+              <Calendar teams={teams} onBookingSubmit={handleBookingSubmit} />
+            }
+          />
           <Route
             path="meetings"
             element={

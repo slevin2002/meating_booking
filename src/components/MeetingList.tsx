@@ -310,12 +310,33 @@ const MeetingList: React.FC<MeetingListProps> = ({
                   }}
                 >
                   <div>
-                    <span style={{ fontWeight: 600 }}>{meeting.title}</span>
-                    <span style={{ marginLeft: 16, color: "#666" }}>
-                      Team: {team?.name || "Unknown"}
+                    {/* Remove the meeting title */}
+                    <span style={{ fontWeight: 700, color: "#333" }}>
+                      Team:
                     </span>
-                    <span style={{ marginLeft: 16, color: "#666" }}>
-                      {formatDateTime(meeting.startTime)} -{" "}
+                    <span
+                      style={{ marginLeft: 6, color: "#666", fontWeight: 500 }}
+                    >
+                      {team?.name || "Unknown"}
+                    </span>
+                    <span
+                      style={{ marginLeft: 16, fontWeight: 700, color: "#333" }}
+                    >
+                      Start:
+                    </span>
+                    <span
+                      style={{ marginLeft: 4, color: "#666", fontWeight: 500 }}
+                    >
+                      {formatDateTime(meeting.startTime)}
+                    </span>
+                    <span
+                      style={{ marginLeft: 12, fontWeight: 700, color: "#333" }}
+                    >
+                      End:
+                    </span>
+                    <span
+                      style={{ marginLeft: 4, color: "#666", fontWeight: 500 }}
+                    >
                       {formatDateTime(meeting.endTime)}
                     </span>
                   </div>
