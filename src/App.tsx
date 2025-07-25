@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Meeting, TimeSlot, Booking } from "./types";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import MainLayout from "./components/MainLayout";
 import Calendar from "./components/Calendar";
 import MeetingList from "./components/MeetingList";
 import TeamOverview from "./components/TeamOverview";
@@ -7,6 +9,7 @@ import AllEmployeesAvailability from "./components/AllEmployeesAvailability";
 import AllEmployees from "./components/AllEmployees";
 import AllRooms from "./components/AllRooms";
 import IntroSlider from "./IntroSlider";
+import MeetingDetails from "./components/MeetingDetails";
 import { meetingAPI, teamAPI } from "./services/api";
 import "./App.css";
 
@@ -279,144 +282,21 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <div className="header">
-        <h1>Meeting Booking App</h1>
-        <p>Schedule meetings for your 12 project teams</p>
-      </div>
-
-      {error && (
-        <div
-          className="error-banner"
-          style={{
-            background: "linear-gradient(135deg, #ef4444, #dc2626)",
-            color: "white",
-            padding: "1rem",
-            margin: "1rem",
-            borderRadius: "12px",
-            textAlign: "center",
-            boxShadow: "0 4px 15px rgba(239, 68, 68, 0.3)",
-          }}
-        >
-          {error}
-          <button
-            onClick={() => setError(null)}
-            style={{
-              background: "rgba(255, 255, 255, 0.2)",
-              border: "none",
-              color: "white",
-              padding: "0.5rem 1rem",
-              borderRadius: "8px",
-              marginLeft: "1rem",
-              cursor: "pointer",
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      <div className="container">
-        <div className="tab-navigation">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() =>
-                setActiveTab(
-                  tab.id as
-                    | "calendar"
-                    | "meetings"
-                    | "teams"
-                    | "availability"
-                    | "employees"
-                    | "rooms"
-                )
-              }
-            >
-              <span className="tab-icon">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="tab-content">
-          {activeTab === "calendar" && (
-            <Calendar onBookingSubmit={handleBookingSubmit} teams={teams} />
-          )}
-
-          {activeTab === "meetings" && (
-            <MeetingList
+    <Router>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <MainLayout
               meetings={meetings}
               teams={teams}
               onDeleteMeeting={handleDeleteMeeting}
-              onEditMeeting={handleEditMeeting}
             />
-          )}
-
-          {activeTab === "teams" && (
-            <div className="teams-section">
-              <div className="section-header">
-                <h2>Team Management</h2>
-                <p>View and manage your project teams</p>
-              </div>
-
-              <div className="sub-tab-navigation">
-                {teamTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    className={`sub-tab-btn ${
-                      activeTeamTab === tab.id ? "active" : ""
-                    }`}
-                    onClick={() =>
-                      setActiveTeamTab(
-                        tab.id as "overview" | "management" | "dashboard"
-                      )
-                    }
-                  >
-                    <span className="tab-icon">{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="sub-tab-content">
-                {activeTeamTab === "overview" && <TeamOverview />}
-
-                {activeTeamTab === "management" && (
-                  <div className="placeholder-content">
-                    <h3>Team Management Component</h3>
-                    <p>
-                      Team management functionality will be implemented here.
-                    </p>
-                  </div>
-                )}
-
-                {activeTeamTab === "dashboard" && (
-                  <div className="placeholder-content">
-                    <h3>Team Dashboard Component</h3>
-                    <p>
-                      Team dashboard functionality will be implemented here.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "availability" && <AllEmployeesAvailability />}
-          {activeTab === "employees" && <AllEmployees teams={teams} />}
-          {activeTab === "rooms" && <AllRooms teams={teams} />}
-        </div>
-      </div>
-
-      {showBookingForm && selectedTimeSlot && (
-        <div className="placeholder-content">
-          <h3>Booking Form Component</h3>
-          <p>Booking form functionality will be implemented here.</p>
-        </div>
-      )}
-    </div>
+          }
+        />
+        <Route path="/meeting/:id" element={<MeetingDetails />} />
+      </Routes>
+    </Router>
   );
 }
 

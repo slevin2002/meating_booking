@@ -12,7 +12,9 @@ import {
   FaCopy,
   FaTimes,
   FaVideo,
+  FaInfoCircle,
 } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 interface TimeSlot {
   id: string;
@@ -89,15 +91,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     useState<boolean>(false);
   const [dayMeetings, setDayMeetings] = useState<any[]>([]);
   const [showDayMeetings, setShowDayMeetings] = useState(false);
-  const [detailsMeeting, setDetailsMeeting] = useState<any | null>(null);
-  const detailsModalRef = useRef<HTMLDivElement>(null);
-
-  // Focus trap for details modal
-  useEffect(() => {
-    if (detailsMeeting && detailsModalRef.current) {
-      detailsModalRef.current.focus();
-    }
-  }, [detailsMeeting]);
+  const navigate = useNavigate();
 
   // Debug memberBusyMap changes
   useEffect(() => {
@@ -378,7 +372,15 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         `http://localhost:5000/api/meetings?startDate=${localDateString}&endDate=${localDateString}`
       );
       const data = await response.json();
-      setDayMeetings(data.meetings || []);
+      // Ensure each meeting has a teamName field
+      const meetingsWithTeam = (data.meetings || []).map((m: any) => ({
+        ...m,
+        teamName:
+          m.teamName ||
+          (teams.find((t) => t._id === m.teamId || t.name === m.team)?.name ??
+            ""),
+      }));
+      setDayMeetings(meetingsWithTeam);
     } catch (error) {
       setDayMeetings([]);
     }
@@ -822,8 +824,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                       ? "today"
                       : ""
                   } ${isPast ? "disabled" : ""}`}
-                  onClick={() => !isPast && handleDateClick(day)}
-                  style={isPast ? { pointerEvents: "none", opacity: 0.4 } : {}}
+                  onClick={() => handleDateClick(day)}
+                  style={isPast ? { opacity: 0.4 } : {}}
                 >
                   {day.getDate()}
                 </div>
@@ -1276,37 +1278,55 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                       borderLeft: `6px solid ${
                         avatarColors[idx % avatarColors.length]
                       }`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
                     }}
                   >
-                    <div className="meeting-title-row">
-                      <div className="meeting-title">{meeting.title}</div>
+                    <div>
+                      <div className="meeting-title-row">
+                        <div className="meeting-title">{meeting.title}</div>
+                      </div>
+                      <div className="meeting-details-single-line">
+                        {meeting.teamName && (
+                          <span>Team: {meeting.teamName}</span>
+                        )}
+                        <span style={{ marginLeft: 12 }}>
+                          {meeting.startTime?.slice(11, 16)} -{" "}
+                          {meeting.endTime?.slice(11, 16)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="meeting-time">
-                      <FaRegClock style={{ marginRight: 4 }} />
-                      {meeting.startTime} - {meeting.endTime}
-                    </div>
-                    <div className="meeting-room">
-                      <FaDoorOpen style={{ marginRight: 4 }} />
-                      Room: {meeting.room}
-                    </div>
-                    <div className="meeting-attendees">
-                      <FaUsers style={{ marginRight: 4 }} />
-                      Attendees: {(meeting.attendees || []).join(", ")}
-                    </div>
+                    <span
+                      style={{
+                        marginLeft: 16,
+                        cursor: "pointer",
+                        color: "#2563eb", // blue-600, or pick your theme color
+                        fontSize: 20,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                      title="View Details"
+                      onClick={() => navigate(`/meeting/${meeting._id}`)}
+                    >
+                      <FaInfoCircle />
+                    </span>
                   </li>
                 ))}
               </ul>
             )}
             <div className="modal-actions">
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setShowDayMeetings(false);
-                  setShowBookingForm(true);
-                }}
-              >
-                Book New Meeting
-              </button>
+              {selectedDate >= todayDate && (
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    setShowDayMeetings(false);
+                    setShowBookingForm(true);
+                  }}
+                >
+                  Book New Meeting
+                </button>
+              )}
               <button
                 className="btn-secondary"
                 onClick={() => setShowDayMeetings(false)}
@@ -1315,121 +1335,6 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
               </button>
             </div>
           </div>
-          {/* Details Modal */}
-          {detailsMeeting && (
-            <div
-              className="modal-overlay details-modal-overlay animated-fade"
-              role="dialog"
-              aria-modal="true"
-            >
-              <div
-                className="modal-dialog details-modal animated-slide"
-                tabIndex={0}
-                ref={detailsModalRef}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setDetailsMeeting(null);
-                }}
-              >
-                <button
-                  className="modal-close"
-                  aria-label="Close"
-                  onClick={() => setDetailsMeeting(null)}
-                >
-                  <FaTimes />
-                </button>
-                <div className="modal-header">
-                  <FaCalendarAlt style={{ marginRight: 8 }} />
-                  Meeting Details
-                </div>
-                <div className="details-section">
-                  <div className="details-title">{detailsMeeting.title}</div>
-                  <div className="details-row">
-                    <FaRegClock style={{ marginRight: 4 }} />{" "}
-                    {detailsMeeting.startTime} - {detailsMeeting.endTime}
-                  </div>
-                  <div className="details-row">
-                    <FaDoorOpen style={{ marginRight: 4 }} /> Room:{" "}
-                    {detailsMeeting.room}
-                  </div>
-                  <div className="details-row">
-                    <FaUsers style={{ marginRight: 4 }} /> Attendees:
-                    <div className="attendee-names-list">
-                      {(detailsMeeting.attendees || []).map((att: string) => (
-                        <span key={att} className="attendee-name-label">
-                          {att}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {detailsMeeting.description && (
-                    <div className="details-row">
-                      <strong>Description:</strong> {detailsMeeting.description}
-                    </div>
-                  )}
-                  {detailsMeeting.teamName && (
-                    <div className="details-row">
-                      <strong>Team:</strong> {detailsMeeting.teamName}
-                    </div>
-                  )}
-                  {/* Example: If virtual, show join button */}
-                  {detailsMeeting.isVirtual && (
-                    <div className="details-row">
-                      <button className="btn-join">
-                        <FaVideo style={{ marginRight: 4 }} />
-                        Join Meeting
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="details-actions">
-                  <button
-                    className="btn-copy"
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        `Meeting: ${detailsMeeting.title}\nTime: ${
-                          detailsMeeting.startTime
-                        } - ${detailsMeeting.endTime}\nRoom: ${
-                          detailsMeeting.room
-                        }\nAttendees: ${(detailsMeeting.attendees || []).join(
-                          ", "
-                        )}`
-                      );
-                    }}
-                  >
-                    <FaCopy style={{ marginRight: 4 }} />
-                    Copy Details
-                  </button>
-                  <button
-                    className="btn-edit"
-                    onClick={() => alert("Edit feature coming soon!")}
-                  >
-                    <FaEdit style={{ marginRight: 4 }} />
-                    Edit
-                  </button>
-                  <button
-                    className="btn-cancel"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Are you sure you want to cancel this meeting?"
-                        )
-                      )
-                        alert("Cancel feature coming soon!");
-                    }}
-                  >
-                    <FaTrash style={{ marginRight: 4 }} />
-                    Cancel
-                  </button>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setDetailsMeeting(null)}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
