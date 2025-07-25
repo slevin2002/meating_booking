@@ -166,8 +166,25 @@ export const teamAPI = {
 // User API functions
 export const userAPI = {
   // Get all users
-  getAll: async () => {
-    return apiRequest("/users");
+  getAll: async (params?: {
+    search?: string;
+    role?: string;
+    teamId?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const endpoint = `/users${
+      queryParams.toString() ? `?${queryParams.toString()}` : ""
+    }`;
+    return apiRequest(endpoint);
   },
 
   // Get user by ID

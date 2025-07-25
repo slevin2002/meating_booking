@@ -201,15 +201,9 @@ router.put(
   }
 );
 
-// Get all users (admin only)
-router.get("/", authMiddleware, async (req, res) => {
+// Get all users (public, like teams)
+router.get("/", async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res
-        .status(403)
-        .json({ error: "Access denied. Admin role required." });
-    }
-
     const { search, role, teamId, page = 1, limit = 10 } = req.query;
     let query = {};
 

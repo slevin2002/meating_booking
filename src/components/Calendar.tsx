@@ -15,6 +15,8 @@ import {
   FaInfoCircle,
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { userAPI } from "../services/api";
+import Select from "react-select";
 
 interface TimeSlot {
   id: string;
@@ -92,6 +94,13 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   const [dayMeetings, setDayMeetings] = useState<any[]>([]);
   const [showDayMeetings, setShowDayMeetings] = useState(false);
   const navigate = useNavigate();
+  const [allEmployees, setAllEmployees] = useState<any[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  // Track employees added via dropdown
+  const [dropdownAddedEmployees, setDropdownAddedEmployees] = useState<
+    string[]
+  >([]);
 
   // Debug memberBusyMap changes
   useEffect(() => {
@@ -102,6 +111,24 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   useEffect(() => {
     console.log("roomBusyMap changed:", roomBusyMap);
   }, [roomBusyMap]);
+
+  // Fetch all employees when booking form is opened
+  useEffect(() => {
+    if (showBookingForm) {
+      setLoadingEmployees(true);
+      userAPI
+        .getAll({ limit: 1000 })
+        .then((data) => {
+          // Accepts both { users: [...] } and [...]
+          const users = data.users || data;
+          setAllEmployees(users);
+        })
+        .catch((err) => {
+          setAllEmployees([]);
+        })
+        .finally(() => setLoadingEmployees(false));
+    }
+  }, [showBookingForm]);
 
   // Check each member's availability when team, start, or end time changes
   React.useEffect(() => {
@@ -673,6 +700,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       setSelectedRoom("");
       setSelectedAttendees([]);
       setMemberConflicts([]);
+      setDropdownAddedEmployees([]);
     }
   };
 
@@ -1227,6 +1255,200 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                   </div>
                 </div>
 
+                {/* All Employees Dropdown - moved below Select Attendees */}
+                <div
+                  className="form-group"
+                  style={{
+                    background: "#f8fafd",
+                    borderRadius: 12,
+                    padding: 20,
+                    marginTop: 24,
+                    boxShadow: "0 2px 8px rgba(102,126,234,0.06)",
+                  }}
+                >
+                  <label
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 16,
+                      color: "#222",
+                      marginBottom: 2,
+                      display: "block",
+                    }}
+                  >
+                    Add Additional Attendees{" "}
+                    <span
+                      style={{ color: "#888", fontWeight: 400, fontSize: 13 }}
+                    >
+                      (Optional)
+                    </span>
+                  </label>
+                  <div
+                    style={{ color: "#6b7280", fontSize: 13, marginBottom: 10 }}
+                  >
+                    Search and add any employee to this meeting.
+                  </div>
+                  <div
+                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+                  >
+                    <div style={{ flex: 3, minWidth: 220 }}>
+                      <Select
+                        options={allEmployees
+                          .filter(
+                            (emp) => !selectedAttendees.includes(emp.name)
+                          )
+                          .map((emp) => ({ value: emp.name, label: emp.name }))}
+                        value={
+                          selectedEmployee
+                            ? {
+                                value: selectedEmployee,
+                                label: selectedEmployee,
+                              }
+                            : null
+                        }
+                        onChange={(option) =>
+                          setSelectedEmployee(option ? option.value : "")
+                        }
+                        isClearable
+                        isSearchable
+                        placeholder="Type to search employees..."
+                        isDisabled={
+                          loadingEmployees || allEmployees.length === 0
+                        }
+                        styles={{
+                          control: (base, state) => ({
+                            ...base,
+                            borderRadius: 8,
+                            borderColor: state.isFocused
+                              ? "#667eea"
+                              : "#e5e7eb",
+                            boxShadow: state.isFocused
+                              ? "0 0 0 2px #a5b4fc"
+                              : "none",
+                            minHeight: 44,
+                            fontSize: 15,
+                          }),
+                          option: (base, state) => ({
+                            ...base,
+                            background: state.isFocused ? "#e0e7ff" : "#fff",
+                            color: "#222",
+                            fontSize: 15,
+                            paddingLeft: 16,
+                          }),
+                          menu: (base) => ({
+                            ...base,
+                            zIndex: 9999,
+                            borderRadius: 8,
+                          }),
+                        }}
+                        menuPlacement="auto"
+                        tabSelectsValue={false}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      style={{
+                        minWidth: 80,
+                        maxWidth: 90,
+                        height: 40,
+                        fontSize: 15,
+                        padding: "0 12px",
+                      }}
+                      disabled={
+                        !selectedEmployee ||
+                        selectedAttendees.includes(selectedEmployee)
+                      }
+                      onClick={() => {
+                        if (
+                          selectedEmployee &&
+                          !selectedAttendees.includes(selectedEmployee)
+                        ) {
+                          setSelectedAttendees([
+                            ...selectedAttendees,
+                            selectedEmployee,
+                          ]);
+                          setDropdownAddedEmployees([
+                            ...dropdownAddedEmployees,
+                            selectedEmployee,
+                          ]);
+                          setSelectedEmployee("");
+                        }
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {loadingEmployees && (
+                    <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
+                      Loading employees...
+                    </div>
+                  )}
+                  {/* List of employees added via dropdown as pill chips */}
+                  <div style={{ marginTop: 18, minHeight: 32 }}>
+                    {dropdownAddedEmployees.length > 0 ? (
+                      <div
+                        style={{ display: "flex", flexWrap: "wrap", gap: 8 }}
+                      >
+                        {dropdownAddedEmployees.map((emp) => (
+                          <span
+                            key={emp}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              background: "#e0e7ff",
+                              color: "#374151",
+                              borderRadius: 16,
+                              padding: "6px 14px 6px 12px",
+                              fontSize: 14,
+                              fontWeight: 500,
+                              boxShadow: "0 1px 4px rgba(102,126,234,0.08)",
+                            }}
+                          >
+                            {emp}
+                            <button
+                              type="button"
+                              style={{
+                                marginLeft: 8,
+                                color: "#667eea",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                lineHeight: 1,
+                                padding: 0,
+                              }}
+                              title="Remove"
+                              onClick={() => {
+                                setDropdownAddedEmployees(
+                                  dropdownAddedEmployees.filter(
+                                    (e) => e !== emp
+                                  )
+                                );
+                                setSelectedAttendees(
+                                  selectedAttendees.filter((a) => a !== emp)
+                                );
+                              }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          color: "#aaa",
+                          fontSize: 13,
+                          fontStyle: "italic",
+                          padding: "4px 0 0 2px",
+                        }}
+                      >
+                        No additional attendees added
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {memberConflicts.length > 0 && (
                   <div className="conflicts-section">
                     <h4>⚠️ Member Conflicts Detected</h4>
@@ -1268,6 +1490,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                     onClick={() => {
                       setShowBookingForm(false);
                       setMemberConflicts([]);
+                      setDropdownAddedEmployees([]);
                     }}
                   >
                     Cancel
