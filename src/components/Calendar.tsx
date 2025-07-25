@@ -762,177 +762,160 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   };
 
   return (
-    <div className="calendar-container">
-      <div className="calendar-header">
-        <h2>Calendar View</h2>
-        <p>Select a date and time slot to book a meeting</p>
-      </div>
-
-      <div className="calendar-content">
-        <div className="calendar-grid">
-          <div className="calendar-nav">
-            <button
-              onClick={() =>
-                setSelectedDate(
-                  new Date(
-                    selectedDate.getFullYear(),
-                    selectedDate.getMonth() - 1
+    <div className="calendar-center-bg">
+      <div className="calendar-center-container">
+        <div className="calendar-header">
+          <h2>Calendar</h2>
+          <p>Select a date and time slot to book a meeting</p>
+        </div>
+        <div className="calendar-center-content">
+          <div className="calendar-grid">
+            <div className="calendar-nav">
+              <button
+                onClick={() =>
+                  setSelectedDate(
+                    new Date(
+                      selectedDate.getFullYear(),
+                      selectedDate.getMonth() - 1
+                    )
                   )
-                )
-              }
-              className="nav-btn"
-            >
-              ‹
-            </button>
-            <h3>
-              {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
-            </h3>
-            <button
-              onClick={() =>
-                setSelectedDate(
-                  new Date(
-                    selectedDate.getFullYear(),
-                    selectedDate.getMonth() + 1
+                }
+                className="nav-btn"
+              >
+                ‹
+              </button>
+              <h3>
+                {monthNames[selectedDate.getMonth()]}{" "}
+                {selectedDate.getFullYear()}
+              </h3>
+              <button
+                onClick={() =>
+                  setSelectedDate(
+                    new Date(
+                      selectedDate.getFullYear(),
+                      selectedDate.getMonth() + 1
+                    )
                   )
-                )
-              }
-              className="nav-btn"
-            >
-              ›
-            </button>
-          </div>
+                }
+                className="nav-btn"
+              >
+                ›
+              </button>
+            </div>
 
-          <div className="calendar-days">
-            <div className="day-header">Sun</div>
-            <div className="day-header">Mon</div>
-            <div className="day-header">Tue</div>
-            <div className="day-header">Wed</div>
-            <div className="day-header">Thu</div>
-            <div className="day-header">Fri</div>
-            <div className="day-header">Sat</div>
+            <div className="calendar-days">
+              <div className="day-header">Sun</div>
+              <div className="day-header">Mon</div>
+              <div className="day-header">Tue</div>
+              <div className="day-header">Wed</div>
+              <div className="day-header">Thu</div>
+              <div className="day-header">Fri</div>
+              <div className="day-header">Sat</div>
 
-            {days.map((day, index) => {
-              const isPast = day && day < todayDate;
-              if (!day) {
-                return <div key={index} className="calendar-day empty"></div>;
-              }
-              return (
-                <div
-                  key={index}
-                  className={`calendar-day ${
-                    day.toDateString() === new Date().toDateString()
-                      ? "today"
-                      : ""
-                  } ${isPast ? "disabled" : ""}`}
-                  onClick={() => handleDateClick(day)}
-                  style={isPast ? { opacity: 0.4 } : {}}
-                >
-                  {day.getDate()}
-                </div>
-              );
-            })}
+              {days.map((day, index) => {
+                const isPast = day && day < todayDate;
+                if (!day) {
+                  return <div key={index} className="calendar-day empty"></div>;
+                }
+                return (
+                  <div
+                    key={index}
+                    className={`calendar-day ${
+                      day.toDateString() === new Date().toDateString()
+                        ? "today"
+                        : ""
+                    } ${isPast ? "disabled" : ""}`}
+                    onClick={() => handleDateClick(day)}
+                    style={isPast ? { opacity: 0.4 } : {}}
+                  >
+                    {day.getDate()}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-
+        <div style={{ textAlign: "center", marginTop: 24 }}>
+          <button
+            className="btn-primary"
+            onClick={() => setShowBookingForm(true)}
+          >
+            Book New Meeting
+          </button>
+        </div>
+        {/* Booking Form Modal Overlay */}
         {showBookingForm && (
-          <div className="booking-form">
-            <h3>Book Meeting for {selectedDate.toDateString()}</h3>
-            <form onSubmit={handleBookingSubmit}>
-              <div className="form-group">
-                <label>Meeting Title:</label>
-                <input
-                  type="text"
-                  value={meetingTitle}
-                  onChange={(e) => setMeetingTitle(e.target.value)}
-                  placeholder="Enter meeting title"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Select Team:</label>
-                <select
-                  value={selectedTeam}
-                  onChange={(e) => setSelectedTeam(e.target.value)}
-                  required
-                >
-                  <option value="">Choose a team</option>
-                  {teams.map((team) => (
-                    <option key={team._id} value={team.name}>
-                      {team.name} - {team.project}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Select Time Slots:</label>
-                <div
-                  style={{
-                    background: "#e3f2fd",
-                    border: "1px solid #bbdefb",
-                    borderRadius: "6px",
-                    padding: "8px 12px",
-                    marginBottom: "15px",
-                    fontSize: "12px",
-                    color: "#1976d2",
-                  }}
-                >
-                  ⏰ <strong>Booking Policy:</strong> Meetings must be booked at
-                  least 2 hours in advance
+          <div className="modal-overlay calendar-booking-modal">
+            <div className="modal-dialog calendar-booking-dialog">
+              <button
+                className="modal-close"
+                aria-label="Close"
+                onClick={() => setShowBookingForm(false)}
+              >
+                ×
+              </button>
+              <h3>Book Meeting for {selectedDate.toDateString()}</h3>
+              <form onSubmit={handleBookingSubmit}>
+                <div className="form-group">
+                  <label>Meeting Title:</label>
+                  <input
+                    type="text"
+                    value={meetingTitle}
+                    onChange={(e) => setMeetingTitle(e.target.value)}
+                    placeholder="Enter meeting title"
+                    required
+                  />
                 </div>
-                <div className="time-slots-container">
-                  <div className="time-slots-section">
-                    <h4>Start Time:</h4>
-                    <div className="time-slots-grid">
-                      {timeSlots.map((slot) => {
-                        const isAvailable = isTimeSlotAvailable(slot);
-                        return (
-                          <button
-                            key={slot.id}
-                            type="button"
-                            className={`time-slot-btn ${
-                              selectedStartSlot === slot.id ? "selected" : ""
-                            } ${!isAvailable ? "unavailable" : ""}`}
-                            onClick={() => handleTimeSlotSelect(slot.id, true)}
-                            disabled={!isAvailable}
-                            title={
-                              !isAvailable
-                                ? "Must book at least 2 hours in advance"
-                                : ""
-                            }
-                          >
-                            {slot.displayTime}
-                            {!isAvailable && (
-                              <span className="unavailable-indicator">⚠️</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
 
-                  <div className="time-slots-section">
-                    <h4>End Time:</h4>
-                    <div className="time-slots-grid">
-                      {timeSlots
-                        .filter(
-                          (slot) =>
-                            !selectedStartSlot || slot.id > selectedStartSlot
-                        )
-                        .map((slot) => {
+                <div className="form-group">
+                  <label>Select Team:</label>
+                  <select
+                    value={selectedTeam}
+                    onChange={(e) => setSelectedTeam(e.target.value)}
+                    required
+                  >
+                    <option value="">Choose a team</option>
+                    {teams.map((team) => (
+                      <option key={team._id} value={team.name}>
+                        {team.name} - {team.project}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Select Time Slots:</label>
+                  <div
+                    style={{
+                      background: "#e3f2fd",
+                      border: "1px solid #bbdefb",
+                      borderRadius: "6px",
+                      padding: "8px 12px",
+                      marginBottom: "15px",
+                      fontSize: "12px",
+                      color: "#1976d2",
+                    }}
+                  >
+                    ⏰ <strong>Booking Policy:</strong> Meetings must be booked
+                    at least 2 hours in advance
+                  </div>
+                  <div className="time-slots-container">
+                    <div className="time-slots-section">
+                      <h4>Start Time:</h4>
+                      <div className="time-slots-grid">
+                        {timeSlots.map((slot) => {
                           const isAvailable = isTimeSlotAvailable(slot);
                           return (
                             <button
                               key={slot.id}
                               type="button"
                               className={`time-slot-btn ${
-                                selectedEndSlot === slot.id ? "selected" : ""
+                                selectedStartSlot === slot.id ? "selected" : ""
                               } ${!isAvailable ? "unavailable" : ""}`}
                               onClick={() =>
-                                handleTimeSlotSelect(slot.id, false)
+                                handleTimeSlotSelect(slot.id, true)
                               }
-                              disabled={!selectedStartSlot || !isAvailable}
+                              disabled={!isAvailable}
                               title={
                                 !isAvailable
                                   ? "Must book at least 2 hours in advance"
@@ -948,300 +931,350 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                             </button>
                           );
                         })}
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {selectedStartTime && selectedEndTime && (
-                  <div className="selected-time-display">
-                    <strong>Selected Time:</strong> {selectedStartTime} -{" "}
-                    {selectedEndTime}
-                    <br />
-                    <small>
-                      Duration:{" "}
-                      {Math.round(
-                        (new Date(
-                          `2000-01-01T${selectedEndTime}:00`
-                        ).getTime() -
-                          new Date(
-                            `2000-01-01T${selectedStartTime}:00`
-                          ).getTime()) /
-                          (1000 * 60)
-                      )}{" "}
-                      minutes
-                    </small>
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label>Select Room:</label>
-                <select
-                  value={selectedRoom}
-                  onChange={(e) => setSelectedRoom(e.target.value)}
-                  required
-                >
-                  <option value="">Choose a room</option>
-                  {meetingRooms.map((room) => {
-                    const isBusy = roomBusyMap[room];
-                    const roomConflicts = roomConflictDetails[room] || [];
-                    const firstConflict =
-                      roomConflicts.length > 0 ? roomConflicts[0] : null;
-
-                    return (
-                      <option
-                        key={room}
-                        value={room}
-                        disabled={isBusy}
-                        style={{
-                          color: isBusy ? "#dc2626" : "inherit",
-                          fontStyle: isBusy ? "italic" : "normal",
-                        }}
-                      >
-                        {room}{" "}
-                        {isBusy
-                          ? `(Busy - until ${
-                              firstConflict
-                                ? formatDateTime(firstConflict.endTime)
-                                : "unknown"
-                            })`
-                          : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-                {selectedRoom && roomBusyMap[selectedRoom] && (
-                  <div
-                    style={{
-                      color: "#dc2626",
-                      fontSize: "12px",
-                      marginTop: "4px",
-                      padding: "4px 8px",
-                      backgroundColor: "#fef2f2",
-                      border: "1px solid #fecaca",
-                      borderRadius: "4px",
-                    }}
-                  >
-                    ⚠️ This room is busy during the selected time
-                    {roomConflictDetails[selectedRoom] &&
-                      roomConflictDetails[selectedRoom].length > 0 && (
-                        <div style={{ marginTop: "4px" }}>
-                          <strong>Conflicts:</strong>
-                          {roomConflictDetails[selectedRoom].map(
-                            (conflict, idx) => (
-                              <div
-                                key={idx}
-                                style={{ marginLeft: "8px", fontSize: "11px" }}
-                              >
-                                • {conflict.title} (
-                                {formatDateTime(conflict.startTime)} -{" "}
-                                {formatDateTime(conflict.endTime)})
-                              </div>
-                            )
-                          )}
-                        </div>
-                      )}
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label>Select Attendees:</label>
-                <div className="attendees-selection">
-                  {selectedTeam &&
-                    teams.find((t) => t.name === selectedTeam) && (
-                      <div className="team-members">
-                        <p className="team-members-label">Team Members:</p>
-                        {teams
-                          .find((t) => t.name === selectedTeam)
-                          ?.members.map((member) => {
-                            console.log(
-                              `Rendering member ${member}, busy status:`,
-                              memberBusyMap[member]
-                            );
-                            const memberConflicts =
-                              memberConflictDetails[member] || [];
+                    <div className="time-slots-section">
+                      <h4>End Time:</h4>
+                      <div className="time-slots-grid">
+                        {timeSlots
+                          .filter(
+                            (slot) =>
+                              !selectedStartSlot || slot.id > selectedStartSlot
+                          )
+                          .map((slot) => {
+                            const isAvailable = isTimeSlotAvailable(slot);
                             return (
-                              <label
-                                key={member}
-                                className="attendee-checkbox"
-                                style={{
-                                  opacity: memberBusyMap[member] ? 0.5 : 1,
-                                }}
+                              <button
+                                key={slot.id}
+                                type="button"
+                                className={`time-slot-btn ${
+                                  selectedEndSlot === slot.id ? "selected" : ""
+                                } ${!isAvailable ? "unavailable" : ""}`}
+                                onClick={() =>
+                                  handleTimeSlotSelect(slot.id, false)
+                                }
+                                disabled={!selectedStartSlot || !isAvailable}
+                                title={
+                                  !isAvailable
+                                    ? "Must book at least 2 hours in advance"
+                                    : ""
+                                }
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={selectedAttendees.includes(member)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedAttendees([
-                                        ...selectedAttendees,
-                                        member,
-                                      ]);
-                                    } else {
-                                      setSelectedAttendees(
-                                        selectedAttendees.filter(
-                                          (a) => a !== member
-                                        )
-                                      );
-                                    }
-                                  }}
-                                  disabled={!!memberBusyMap[member]}
-                                />
-                                <span className="attendee-name">
-                                  {member}
-                                  {!selectedStartTime || !selectedEndTime ? (
-                                    <span
-                                      style={{
-                                        color: "#6b7280",
-                                        fontSize: 10,
-                                        marginLeft: 4,
-                                      }}
-                                    >
-                                      (Select time to check availability)
-                                    </span>
-                                  ) : checkingAvailability ? (
-                                    <span
-                                      style={{
-                                        color: "#059669",
-                                        fontSize: 10,
-                                        marginLeft: 4,
-                                      }}
-                                    >
-                                      🔄 Checking...
-                                    </span>
-                                  ) : (
-                                    <span
-                                      style={{
-                                        color: "#6b7280",
-                                        fontSize: 10,
-                                        marginLeft: 4,
-                                      }}
-                                    >
-                                      (Status:{" "}
-                                      {memberBusyMap[member] ? "Busy" : "Free"})
-                                    </span>
-                                  )}
-                                </span>
-                                {memberBusyMap[member] && (
-                                  <span
-                                    style={{
-                                      color: "#dc2626",
-                                      fontSize: 12,
-                                      marginLeft: 6,
-                                      fontWeight: "bold",
-                                      backgroundColor: "#fef2f2",
-                                      padding: "2px 6px",
-                                      borderRadius: "4px",
-                                      border: "1px solid #fecaca",
-                                    }}
-                                    title="This member is busy during the selected time."
-                                  >
-                                    ⚠️ Busy - until{" "}
-                                    {memberConflictDetails[member] &&
-                                    memberConflictDetails[member].length > 0
-                                      ? formatDateTime(
-                                          memberConflictDetails[member][0]
-                                            .endTime
-                                        )
-                                      : "unknown"}
+                                {slot.displayTime}
+                                {!isAvailable && (
+                                  <span className="unavailable-indicator">
+                                    ⚠️
                                   </span>
                                 )}
-                                {memberBusyMap[member] &&
-                                  memberConflicts.length > 0 && (
-                                    <div
-                                      style={{
-                                        marginTop: "4px",
-                                        marginLeft: "20px",
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          fontSize: "11px",
-                                          color: "#dc2626",
-                                        }}
-                                      >
-                                        <strong>Conflicts:</strong>
-                                        {memberConflicts.map(
-                                          (conflict, idx) => (
-                                            <div
-                                              key={idx}
-                                              style={{
-                                                marginLeft: "8px",
-                                                fontSize: "10px",
-                                              }}
-                                            >
-                                              • {conflict.title} (
-                                              {formatDateTime(
-                                                conflict.startTime
-                                              )}{" "}
-                                              -{" "}
-                                              {formatDateTime(conflict.endTime)}
-                                              )
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                              </label>
+                              </button>
                             );
                           })}
                       </div>
-                    )}
-                  {!selectedTeam && (
-                    <p className="select-team-first">
-                      Please select a team first to see available members
-                    </p>
+                    </div>
+                  </div>
+
+                  {selectedStartTime && selectedEndTime && (
+                    <div className="selected-time-display">
+                      <strong>Selected Time:</strong> {selectedStartTime} -{" "}
+                      {selectedEndTime}
+                      <br />
+                      <small>
+                        Duration:{" "}
+                        {Math.round(
+                          (new Date(
+                            `2000-01-01T${selectedEndTime}:00`
+                          ).getTime() -
+                            new Date(
+                              `2000-01-01T${selectedStartTime}:00`
+                            ).getTime()) /
+                            (1000 * 60)
+                        )}{" "}
+                        minutes
+                      </small>
+                    </div>
                   )}
                 </div>
-              </div>
 
-              {memberConflicts.length > 0 && (
-                <div className="conflicts-section">
-                  <h4>⚠️ Member Conflicts Detected</h4>
-                  <p>The following members have conflicts during this time:</p>
-                  {memberConflicts.map((conflict) => (
-                    <div key={conflict.member} className="member-conflict">
-                      <h5>{conflict.member}</h5>
-                      <div className="conflict-meetings">
-                        {conflict.conflicts.map((meeting, index) => (
-                          <div key={index} className="conflict-meeting">
-                            <strong>{meeting.title}</strong>
-                            <p>Team: {meeting.teamName}</p>
-                            <p>Room: {meeting.room}</p>
-                            <p>
-                              Time: {formatDateTime(meeting.startTime)} -{" "}
-                              {formatDateTime(meeting.endTime)}
-                            </p>
+                <div className="form-group">
+                  <label>Select Room:</label>
+                  <select
+                    value={selectedRoom}
+                    onChange={(e) => setSelectedRoom(e.target.value)}
+                    required
+                  >
+                    <option value="">Choose a room</option>
+                    {meetingRooms.map((room) => {
+                      const isBusy = roomBusyMap[room];
+                      const roomConflicts = roomConflictDetails[room] || [];
+                      const firstConflict =
+                        roomConflicts.length > 0 ? roomConflicts[0] : null;
+
+                      return (
+                        <option
+                          key={room}
+                          value={room}
+                          disabled={isBusy}
+                          style={{
+                            color: isBusy ? "#dc2626" : "inherit",
+                            fontStyle: isBusy ? "italic" : "normal",
+                          }}
+                        >
+                          {room}{" "}
+                          {isBusy
+                            ? `(Busy - until ${
+                                firstConflict
+                                  ? formatDateTime(firstConflict.endTime)
+                                  : "unknown"
+                              })`
+                            : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {selectedRoom && roomBusyMap[selectedRoom] && (
+                    <div
+                      style={{
+                        color: "#dc2626",
+                        fontSize: "12px",
+                        marginTop: "4px",
+                        padding: "4px 8px",
+                        backgroundColor: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      ⚠️ This room is busy during the selected time
+                      {roomConflictDetails[selectedRoom] &&
+                        roomConflictDetails[selectedRoom].length > 0 && (
+                          <div style={{ marginTop: "4px" }}>
+                            <strong>Conflicts:</strong>
+                            {roomConflictDetails[selectedRoom].map(
+                              (conflict, idx) => (
+                                <div
+                                  key={idx}
+                                  style={{
+                                    marginLeft: "8px",
+                                    fontSize: "11px",
+                                  }}
+                                >
+                                  • {conflict.title} (
+                                  {formatDateTime(conflict.startTime)} -{" "}
+                                  {formatDateTime(conflict.endTime)})
+                                </div>
+                              )
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        )}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
 
-              <div className="form-actions">
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={memberConflicts.length > 0}
-                >
-                  Book Meeting
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => {
-                    setShowBookingForm(false);
-                    setMemberConflicts([]);
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+                <div className="form-group">
+                  <label>Select Attendees:</label>
+                  <div className="attendees-selection">
+                    {selectedTeam &&
+                      teams.find((t) => t.name === selectedTeam) && (
+                        <div className="team-members">
+                          <p className="team-members-label">Team Members:</p>
+                          {teams
+                            .find((t) => t.name === selectedTeam)
+                            ?.members.map((member) => {
+                              console.log(
+                                `Rendering member ${member}, busy status:`,
+                                memberBusyMap[member]
+                              );
+                              const memberConflicts =
+                                memberConflictDetails[member] || [];
+                              return (
+                                <label
+                                  key={member}
+                                  className="attendee-checkbox"
+                                  style={{
+                                    opacity: memberBusyMap[member] ? 0.5 : 1,
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedAttendees.includes(member)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedAttendees([
+                                          ...selectedAttendees,
+                                          member,
+                                        ]);
+                                      } else {
+                                        setSelectedAttendees(
+                                          selectedAttendees.filter(
+                                            (a) => a !== member
+                                          )
+                                        );
+                                      }
+                                    }}
+                                    disabled={!!memberBusyMap[member]}
+                                  />
+                                  <span className="attendee-name">
+                                    {member}
+                                    {!selectedStartTime || !selectedEndTime ? (
+                                      <span
+                                        style={{
+                                          color: "#6b7280",
+                                          fontSize: 10,
+                                          marginLeft: 4,
+                                        }}
+                                      >
+                                        (Select time to check availability)
+                                      </span>
+                                    ) : checkingAvailability ? (
+                                      <span
+                                        style={{
+                                          color: "#059669",
+                                          fontSize: 10,
+                                          marginLeft: 4,
+                                        }}
+                                      >
+                                        🔄 Checking...
+                                      </span>
+                                    ) : (
+                                      <span
+                                        style={{
+                                          color: "#6b7280",
+                                          fontSize: 10,
+                                          marginLeft: 4,
+                                        }}
+                                      >
+                                        (Status:{" "}
+                                        {memberBusyMap[member]
+                                          ? "Busy"
+                                          : "Free"}
+                                        )
+                                      </span>
+                                    )}
+                                  </span>
+                                  {memberBusyMap[member] && (
+                                    <span
+                                      style={{
+                                        color: "#dc2626",
+                                        fontSize: 12,
+                                        marginLeft: 6,
+                                        fontWeight: "bold",
+                                        backgroundColor: "#fef2f2",
+                                        padding: "2px 6px",
+                                        borderRadius: "4px",
+                                        border: "1px solid #fecaca",
+                                      }}
+                                      title="This member is busy during the selected time."
+                                    >
+                                      ⚠️ Busy - until{" "}
+                                      {memberConflictDetails[member] &&
+                                      memberConflictDetails[member].length > 0
+                                        ? formatDateTime(
+                                            memberConflictDetails[member][0]
+                                              .endTime
+                                          )
+                                        : "unknown"}
+                                    </span>
+                                  )}
+                                  {memberBusyMap[member] &&
+                                    memberConflicts.length > 0 && (
+                                      <div
+                                        style={{
+                                          marginTop: "4px",
+                                          marginLeft: "20px",
+                                        }}
+                                      >
+                                        <div
+                                          style={{
+                                            fontSize: "11px",
+                                            color: "#dc2626",
+                                          }}
+                                        >
+                                          <strong>Conflicts:</strong>
+                                          {memberConflicts.map(
+                                            (conflict, idx) => (
+                                              <div
+                                                key={idx}
+                                                style={{
+                                                  marginLeft: "8px",
+                                                  fontSize: "10px",
+                                                }}
+                                              >
+                                                • {conflict.title} (
+                                                {formatDateTime(
+                                                  conflict.startTime
+                                                )}{" "}
+                                                -{" "}
+                                                {formatDateTime(
+                                                  conflict.endTime
+                                                )}
+                                                )
+                                              </div>
+                                            )
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                </label>
+                              );
+                            })}
+                        </div>
+                      )}
+                    {!selectedTeam && (
+                      <p className="select-team-first">
+                        Please select a team first to see available members
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {memberConflicts.length > 0 && (
+                  <div className="conflicts-section">
+                    <h4>⚠️ Member Conflicts Detected</h4>
+                    <p>
+                      The following members have conflicts during this time:
+                    </p>
+                    {memberConflicts.map((conflict) => (
+                      <div key={conflict.member} className="member-conflict">
+                        <h5>{conflict.member}</h5>
+                        <div className="conflict-meetings">
+                          {conflict.conflicts.map((meeting, index) => (
+                            <div key={index} className="conflict-meeting">
+                              <strong>{meeting.title}</strong>
+                              <p>Team: {meeting.teamName}</p>
+                              <p>Room: {meeting.room}</p>
+                              <p>
+                                Time: {formatDateTime(meeting.startTime)} -{" "}
+                                {formatDateTime(meeting.endTime)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="form-actions">
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={memberConflicts.length > 0}
+                  >
+                    Book Meeting
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      setShowBookingForm(false);
+                      setMemberConflicts([]);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </div>
