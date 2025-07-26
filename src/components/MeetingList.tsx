@@ -22,12 +22,17 @@ const MeetingList: React.FC<MeetingListProps> = ({
   const [sortBy, setSortBy] = useState<"date" | "team" | "title">("date");
   const [filterTeam, setFilterTeam] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "scheduled">(
+    "scheduled"
+  );
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState<any>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [meetingToCancel, setMeetingToCancel] = useState<Meeting | null>(null);
 
   const navigate = useNavigate();
 
@@ -60,7 +65,10 @@ const MeetingList: React.FC<MeetingListProps> = ({
         !searchTerm ||
         meeting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         meeting.description.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesTeam && matchesSearch;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "scheduled" && meeting.status === "scheduled");
+      return matchesTeam && matchesSearch && matchesStatus;
     });
   };
 
@@ -242,7 +250,7 @@ const MeetingList: React.FC<MeetingListProps> = ({
     <div className="meeting-list">
       <div className="list-header">
         <h2>Meeting List</h2>
-        <p>View and manage all scheduled meetings</p>
+        <p>View and manage scheduled meetings</p>
       </div>
 
       <div className="controls">
@@ -279,6 +287,16 @@ const MeetingList: React.FC<MeetingListProps> = ({
             <option value="date">Sort by Date</option>
             <option value="team">Sort by Team</option>
             <option value="title">Sort by Title</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as "all" | "scheduled")
+            }
+            className="filter-select"
+          >
+            <option value="all">All Meetings</option>
+            <option value="scheduled">Scheduled Only</option>
           </select>
         </div>
       </div>
@@ -340,28 +358,149 @@ const MeetingList: React.FC<MeetingListProps> = ({
                       {formatDateTime(meeting.endTime)}
                     </span>
                   </div>
-                  <span
-                    style={{
-                      marginLeft: 16,
-                      cursor: "pointer",
-                      color: "#2563eb",
-                      fontSize: 20,
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                    title="View Details"
-                    onClick={() =>
-                      navigate(`/meeting/${meeting.id || meeting._id}`)
-                    }
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 12 }}
                   >
-                    <FaInfoCircle />
-                  </span>
+                    {meeting.status === "scheduled" && (
+                      <button
+                        onClick={() => {
+                          setMeetingToCancel(meeting);
+                          setShowCancelModal(true);
+                        }}
+                        style={{
+                          background: "#dc2626",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "6px 12px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                        title="Cancel Meeting"
+                      >
+                        Cancel
+                      </button>
+                    )}
+
+                    <span
+                      style={{
+                        cursor: "pointer",
+                        color: "#2563eb",
+                        fontSize: 20,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                      title="View Details"
+                      onClick={() =>
+                        navigate(`/meeting/${meeting.id || meeting._id}`)
+                      }
+                    >
+                      <FaInfoCircle />
+                    </span>
+                  </div>
                 </li>
               );
             })}
           </ul>
         )}
       </div>
+
+      {/* Custom Cancel Confirmation Modal */}
+      {showCancelModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "8px",
+              padding: "24px",
+              maxWidth: "400px",
+              width: "90%",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 16px 0",
+                fontSize: "18px",
+                fontWeight: "600",
+                color: "#1f2937",
+              }}
+            >
+              Cancel Meeting
+            </h3>
+            <p
+              style={{
+                margin: "0 0 20px 0",
+                fontSize: "14px",
+                color: "#6b7280",
+                lineHeight: "1.5",
+              }}
+            >
+              Are you sure you want to cancel this meeting? You will need to
+              provide a reason.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={() => setShowCancelModal(false)}
+                style={{
+                  background: "#f3f4f6",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  padding: "8px 16px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (meetingToCancel) {
+                    navigate(
+                      `/meeting/${meetingToCancel.id || meetingToCancel._id}`
+                    );
+                  }
+                  setShowCancelModal(false);
+                }}
+                style={{
+                  background: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 16px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

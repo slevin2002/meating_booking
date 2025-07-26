@@ -13,6 +13,7 @@ import TeamOverview from "./components/TeamOverview";
 import AllEmployeesAvailability from "./components/AllEmployeesAvailability";
 import AllEmployees from "./components/AllEmployees";
 import AllRooms from "./components/AllRooms";
+import CancelledMeetings from "./components/CancelledMeetings";
 import IntroSlider from "./IntroSlider";
 import MeetingDetails from "./components/MeetingDetails";
 import { meetingAPI, teamAPI } from "./services/api";
@@ -255,6 +256,7 @@ function App() {
   const tabs = [
     { id: "calendar", label: "Calendar", icon: "📅" },
     { id: "meetings", label: "Meetings", icon: "📋" },
+    { id: "cancelled", label: "Cancelled", icon: "❌" },
     { id: "teams", label: "Teams", icon: "👥" },
     { id: "availability", label: "Availability", icon: "👥" },
     { id: "employees", label: "Employees", icon: "👤" },
@@ -310,6 +312,7 @@ function App() {
               />
             }
           />
+          <Route path="cancelled" element={<CancelledMeetings />} />
           <Route path="teams" element={<TeamOverview />} />
           <Route path="availability" element={<AllEmployeesAvailability />} />
           <Route path="employees" element={<AllEmployees teams={teams} />} />

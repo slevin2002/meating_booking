@@ -769,6 +769,56 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// Cancel meeting with reason
+router.patch("/:id/cancel", async (req, res) => {
+  try {
+    const { cancelReason } = req.body;
+
+    if (!cancelReason || cancelReason.trim().length === 0) {
+      return res.status(400).json({
+        error: "Cancel reason is required",
+      });
+    }
+
+    if (cancelReason.length > 500) {
+      return res.status(400).json({
+        error: "Cancel reason cannot exceed 500 characters",
+      });
+    }
+
+    const meeting = await Meeting.findById(req.params.id);
+    if (!meeting) {
+      return res.status(404).json({ error: "Meeting not found" });
+    }
+
+    // Check if meeting is already cancelled
+    if (meeting.status === "cancelled") {
+      return res.status(400).json({ error: "Meeting is already cancelled" });
+    }
+
+    // Update meeting status to cancelled and add reason
+    meeting.status = "cancelled";
+    meeting.cancelReason = cancelReason.trim();
+    await meeting.save();
+
+    const populatedMeeting = await Meeting.findById(req.params.id).populate(
+      "teamId",
+      "name color"
+    );
+
+    res.json({
+      message: "Meeting cancelled successfully",
+      meeting: populatedMeeting,
+    });
+  } catch (error) {
+    console.error("Error cancelling meeting:", error);
+    res.status(500).json({
+      error: "Error cancelling meeting",
+      message: error.message,
+    });
+  }
+});
+
 // Get meeting statistics
 router.get("/stats/overview", async (req, res) => {
   try {

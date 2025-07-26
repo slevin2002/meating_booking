@@ -6,7 +6,8 @@ export interface Team {
 }
 
 export interface Meeting {
-  id: string;
+  id?: string;
+  _id?: string;
   title: string;
   description: string;
   teamId: string;
@@ -16,6 +17,8 @@ export interface Meeting {
   room?: string;
   isRecurring: boolean;
   recurringPattern?: "daily" | "weekly" | "monthly";
+  status?: "scheduled" | "completed" | "cancelled";
+  cancelReason?: string;
 }
 
 export interface TimeSlot {

@@ -52,6 +52,14 @@ const meetingSchema = new mongoose.Schema(
       enum: ["scheduled", "completed", "cancelled"],
       default: "scheduled",
     },
+    cancelReason: {
+      type: String,
+      trim: true,
+      maxlength: [500, "Cancel reason cannot exceed 500 characters"],
+      required: function () {
+        return this.status === "cancelled";
+      },
+    },
     isRecurring: {
       type: Boolean,
       default: false,

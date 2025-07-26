@@ -21,6 +21,7 @@ export interface Meeting {
   attendees: string[];
   room: string;
   status: "scheduled" | "completed" | "cancelled";
+  cancelReason?: string;
   isRecurring?: boolean;
   recurringPattern?: string;
   createdAt?: string;
