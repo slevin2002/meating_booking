@@ -2,6 +2,18 @@ import { Team } from "../types";
 
 export const teams: Team[] = [
   {
+    _id: "general",
+    id: "general",
+    name: "General meeting",
+    color: "#667eea",
+    members: [], // Will be populated dynamically with all employees
+    lead: "All Employees",
+    project: "Company-wide Meetings",
+    status: "active",
+    description: "General company meetings for all employees",
+  },
+  {
+    _id: "1",
     id: "1",
     name: "ShopZone",
     color: "#FF6B6B",
@@ -12,6 +24,7 @@ export const teams: Team[] = [
     description: "Online shopping platform development",
   },
   {
+    _id: "2",
     id: "2",
     name: "Delivery App",
     color: "#4ECDC4",
@@ -29,6 +42,7 @@ export const teams: Team[] = [
     description: "Food and grocery delivery platform",
   },
   {
+    _id: "3",
     id: "3",
     name: "MySkilzo",
     color: "#45B7D1",
@@ -39,6 +53,7 @@ export const teams: Team[] = [
     description: "Online learning and skill development platform",
   },
   {
+    _id: "4",
     id: "4",
     name: "GLawHub",
     color: "#96CEB4",
@@ -55,6 +70,7 @@ export const teams: Team[] = [
     description: "Legal consultation and services platform",
   },
   {
+    _id: "5",
     id: "5",
     name: "Sympsearch",
     color: "#FFEAA7",
@@ -65,6 +81,7 @@ export const teams: Team[] = [
     description: "Medical symptom search and diagnosis platform",
   },
   {
+    _id: "6",
     id: "6",
     name: "VideoServe",
     color: "#DDA0DD",
@@ -75,6 +92,7 @@ export const teams: Team[] = [
     description: "Video streaming and content delivery platform",
   },
   {
+    _id: "7",
     id: "7",
     name: "AtoZNews",
     color: "#98D8C8",
@@ -85,6 +103,7 @@ export const teams: Team[] = [
     description: "Comprehensive news and information platform",
   },
   {
+    _id: "8",
     id: "8",
     name: "VehiQuick",
     color: "#F7DC6F",
@@ -102,6 +121,7 @@ export const teams: Team[] = [
     description: "Vehicle maintenance and services platform",
   },
   {
+    _id: "9",
     id: "9",
     name: "ZBook -SM",
     color: "#BB8FCE",
@@ -112,6 +132,7 @@ export const teams: Team[] = [
     description: "Social media integration and book sharing platform",
   },
   {
+    _id: "10",
     id: "10",
     name: "Matrimonial",
     color: "#85C1E9",
@@ -122,6 +143,7 @@ export const teams: Team[] = [
     description: "Matrimonial matchmaking and services platform",
   },
   {
+    _id: "11",
     id: "11",
     name: "Employee",
     color: "#F8C471",
@@ -132,6 +154,7 @@ export const teams: Team[] = [
     description: "Employee management and HR platform",
   },
   {
+    _id: "12",
     id: "12",
     name: "ChatApp",
     color: "#A9DFBF",

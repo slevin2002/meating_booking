@@ -83,6 +83,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     useState<boolean>(false);
   const [dayMeetings, setDayMeetings] = useState<any[]>([]);
   const [showDayMeetings, setShowDayMeetings] = useState(false);
+  const [checkingRoomAvailability, setCheckingRoomAvailability] =
+    useState<boolean>(false);
   const navigate = useNavigate();
   const [allEmployees, setAllEmployees] = useState<any[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
@@ -126,6 +128,11 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
 
   // Build unique list of all employees (team members + all employees)
   const uniqueEmployeeNames = React.useMemo(() => {
+    // If "General meeting" is selected, include all employees
+    if (selectedTeam === "general") {
+      return allEmployees.map((emp) => emp.name);
+    }
+
     const teamMemberNames =
       selectedTeam && teams.find((t) => t._id === selectedTeam)
         ? teams.find((t) => t._id === selectedTeam)!.members
@@ -199,8 +206,15 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       setMemberConflictDetails({});
       return;
     }
-    const teamObj = teams.find((t) => t._id === selectedTeam);
-    if (!teamObj) return;
+
+    // For General meeting, check all employees
+    const membersToCheck =
+      selectedTeam === "general"
+        ? allEmployees.map((emp) => emp.name)
+        : teams.find((t) => t._id === selectedTeam)?.members || [];
+
+    if (membersToCheck.length === 0) return;
+
     const checkYear = selectedDate.getFullYear();
     const checkMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
     const checkDay = String(selectedDate.getDate()).padStart(2, "0");
@@ -210,7 +224,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       const conflictDetailsMap: { [member: string]: { endTime: string }[] } =
         {};
       await Promise.all(
-        teamObj.members.map(async (member) => {
+        membersToCheck.map(async (member) => {
           try {
             const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
               member
@@ -239,7 +253,83 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       setMemberBusyMap(busyMap);
       setMemberConflictDetails(conflictDetailsMap);
     })();
-  }, [selectedTeam, selectedDate, selectedStartTime, selectedEndTime, teams]);
+  }, [
+    selectedTeam,
+    selectedDate,
+    selectedStartTime,
+    selectedEndTime,
+    teams,
+    allEmployees,
+  ]);
+
+  // --- ROOM AVAILABILITY CHECK ---
+  useEffect(() => {
+    if (!selectedDate || !selectedStartTime || !selectedEndTime) {
+      setRoomBusyMap({});
+      setRoomConflictDetails({});
+      return;
+    }
+
+    setCheckingRoomAvailability(true);
+    const checkYear = selectedDate.getFullYear();
+    const checkMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const checkDay = String(selectedDate.getDate()).padStart(2, "0");
+    const checkFormattedDate = `${checkYear}-${checkMonth}-${checkDay}`;
+
+    (async () => {
+      const busyMap: { [room: string]: boolean } = {};
+      const conflictDetailsMap: {
+        [room: string]: Array<{
+          title: string;
+          startTime: string;
+          endTime: string;
+          teamName: string;
+          attendees: string[];
+        }>;
+      } = {};
+
+      await Promise.all(
+        meetingRooms.map(async (room) => {
+          try {
+            const url = `http://localhost:5000/api/meetings/check-room-availability?room=${encodeURIComponent(
+              room
+            )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+            const response = await fetch(url);
+            if (response.ok) {
+              const data = await response.json();
+              busyMap[room] = data.status === "busy";
+              if (
+                data.status === "busy" &&
+                data.conflicts &&
+                data.conflicts.length > 0
+              ) {
+                conflictDetailsMap[room] = data.conflicts.map(
+                  (conflict: any) => ({
+                    title: conflict.title,
+                    startTime: conflict.startTime,
+                    endTime: conflict.endTime,
+                    teamName:
+                      conflict.teamId?.name ||
+                      conflict.teamName ||
+                      "Unknown Team",
+                    attendees: conflict.attendees || [],
+                  })
+                );
+              }
+            } else {
+              busyMap[room] = false;
+            }
+          } catch {
+            busyMap[room] = false;
+          }
+        })
+      );
+
+      setRoomBusyMap(busyMap);
+      setRoomConflictDetails(conflictDetailsMap);
+      setCheckingRoomAvailability(false);
+    })();
+  }, [selectedDate, selectedStartTime, selectedEndTime]);
 
   // Generate calendar days
   const getDaysInMonth = (date: Date) => {
@@ -775,6 +865,24 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   // When team, time, or availability changes, auto-select all free team members
   useEffect(() => {
     if (!selectedTeam || !selectedStartTime || !selectedEndTime) return;
+
+    // For General meeting, select all free employees
+    if (selectedTeam === "general") {
+      const freeEmployees = allEmployees
+        .map((emp) => emp.name)
+        .filter((name) => !memberBusyMap[name]);
+
+      // Only auto-select if user hasn't manually changed selection
+      const busySelected = selectedAttendees.filter((a) => memberBusyMap[a]);
+      if (
+        selectedAttendees.length === 0 ||
+        busySelected.length === selectedAttendees.length
+      ) {
+        setSelectedAttendees(freeEmployees);
+      }
+      return;
+    }
+
     const teamObj = teams.find((t) => t._id === selectedTeam);
     if (!teamObj) return;
     // Only select free members (not busy)
@@ -791,7 +899,14 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     ) {
       setSelectedAttendees(freeMembers);
     }
-  }, [selectedTeam, selectedStartTime, selectedEndTime, memberBusyMap, teams]);
+  }, [
+    selectedTeam,
+    selectedStartTime,
+    selectedEndTime,
+    memberBusyMap,
+    teams,
+    allEmployees,
+  ]);
 
   return (
     <div className="calendar-center-bg">
@@ -1030,12 +1145,32 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
 
                 <div className="form-group">
                   <label>Select Room:</label>
+                  {checkingRoomAvailability && (
+                    <div
+                      style={{
+                        color: "#059669",
+                        fontSize: 12,
+                        marginBottom: 8,
+                        padding: "4px 8px",
+                        backgroundColor: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      🔄 Checking room availability...
+                    </div>
+                  )}
                   <select
                     value={selectedRoom}
                     onChange={(e) => setSelectedRoom(e.target.value)}
                     required
+                    disabled={checkingRoomAvailability}
                   >
-                    <option value="">Choose a room</option>
+                    <option value="">
+                      {checkingRoomAvailability
+                        ? "Checking availability..."
+                        : "Choose a room"}
+                    </option>
                     {meetingRooms.map((room) => {
                       const isBusy = roomBusyMap[room];
                       const roomConflicts = roomConflictDetails[room] || [];
@@ -1100,170 +1235,180 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                         )}
                     </div>
                   )}
+                  {selectedRoom &&
+                    !roomBusyMap[selectedRoom] &&
+                    !checkingRoomAvailability && (
+                      <div
+                        style={{
+                          color: "#059669",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                          padding: "4px 8px",
+                          backgroundColor: "#f0fdf4",
+                          border: "1px solid #bbf7d0",
+                          borderRadius: "4px",
+                        }}
+                      >
+                        ✅ This room is available for the selected time
+                      </div>
+                    )}
                 </div>
 
                 <div className="form-group">
                   <label>Select Attendees:</label>
                   <div className="attendees-selection">
-                    {selectedTeam &&
-                      teams.find((t) => t._id === selectedTeam) && (
-                        <div className="team-members">
-                          <p className="team-members-label">Team Members:</p>
-                          {teams
-                            .find((t) => t._id === selectedTeam)
-                            ?.members.map((member) => {
-                              console.log(
-                                `Rendering member ${member}, busy status:`,
-                                memberBusyMap[member]
-                              );
-                              const memberConflicts =
-                                memberBusyMap[member] &&
-                                memberConflictDetails[member]?.length > 0
-                                  ? [
-                                      {
-                                        title: "Busy",
-                                        startTime: "Now",
-                                        endTime:
-                                          memberConflictDetails[member]?.[0]
-                                            ?.endTime,
-                                        teamName: "Unknown Team",
-                                        room: "Unknown Room",
-                                      },
-                                    ]
-                                  : [];
-                              return (
-                                <label
-                                  key={member}
-                                  className="attendee-checkbox"
-                                  style={{
-                                    opacity: memberBusyMap[member] ? 0.5 : 1,
-                                  }}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedAttendees.includes(member)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedAttendees([
-                                          ...selectedAttendees,
-                                          member,
-                                        ]);
-                                      } else {
-                                        setSelectedAttendees(
-                                          selectedAttendees.filter(
-                                            (a) => a !== member
-                                          )
-                                        );
-                                      }
+                    {selectedTeam && (
+                      <div className="team-members">
+                        <p className="team-members-label">
+                          {selectedTeam === "general"
+                            ? "All Employees:"
+                            : "Team Members:"}
+                        </p>
+                        {(selectedTeam === "general"
+                          ? allEmployees.map((emp) => emp.name)
+                          : teams.find((t) => t._id === selectedTeam)
+                              ?.members || []
+                        ).map((member) => {
+                          console.log(
+                            `Rendering member ${member}, busy status:`,
+                            memberBusyMap[member]
+                          );
+                          const memberConflicts =
+                            memberBusyMap[member] &&
+                            memberConflictDetails[member]?.length > 0
+                              ? [
+                                  {
+                                    title: "Busy",
+                                    startTime: "Now",
+                                    endTime:
+                                      memberConflictDetails[member]?.[0]
+                                        ?.endTime,
+                                    teamName: "Unknown Team",
+                                    room: "Unknown Room",
+                                  },
+                                ]
+                              : [];
+                          return (
+                            <label
+                              key={member}
+                              className="attendee-checkbox"
+                              style={{
+                                opacity: memberBusyMap[member] ? 0.5 : 1,
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedAttendees.includes(member)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedAttendees([
+                                      ...selectedAttendees,
+                                      member,
+                                    ]);
+                                  } else {
+                                    setSelectedAttendees(
+                                      selectedAttendees.filter(
+                                        (a) => a !== member
+                                      )
+                                    );
+                                  }
+                                }}
+                                disabled={memberBusyMap[member]}
+                              />
+                              <span className="attendee-name">
+                                {member}
+                                {!selectedStartTime || !selectedEndTime ? (
+                                  <span
+                                    style={{
+                                      color: "#6b7280",
+                                      fontSize: 10,
+                                      marginLeft: 4,
                                     }}
-                                    disabled={memberBusyMap[member]}
-                                  />
-                                  <span className="attendee-name">
-                                    {member}
-                                    {!selectedStartTime || !selectedEndTime ? (
-                                      <span
-                                        style={{
-                                          color: "#6b7280",
-                                          fontSize: 10,
-                                          marginLeft: 4,
-                                        }}
-                                      >
-                                        (Select time to check availability)
-                                      </span>
-                                    ) : checkingAvailability ? (
-                                      <span
-                                        style={{
-                                          color: "#059669",
-                                          fontSize: 10,
-                                          marginLeft: 4,
-                                        }}
-                                      >
-                                        🔄 Checking...
-                                      </span>
-                                    ) : (
-                                      <span
-                                        style={{
-                                          color: "#6b7280",
-                                          fontSize: 10,
-                                          marginLeft: 4,
-                                        }}
-                                      >
-                                        (Status:{" "}
-                                        {memberBusyMap[member]
-                                          ? "Busy"
-                                          : "Free"}
-                                        )
-                                      </span>
-                                    )}
+                                  >
+                                    (Select time to check availability)
                                   </span>
-                                  {memberBusyMap[member] && (
-                                    <span
+                                ) : checkingAvailability ? (
+                                  <span
+                                    style={{
+                                      color: "#059669",
+                                      fontSize: 10,
+                                      marginLeft: 4,
+                                    }}
+                                  >
+                                    🔄 Checking...
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      color: "#6b7280",
+                                      fontSize: 10,
+                                      marginLeft: 4,
+                                    }}
+                                  >
+                                    (Status:{" "}
+                                    {memberBusyMap[member] ? "Busy" : "Free"})
+                                  </span>
+                                )}
+                              </span>
+                              {memberBusyMap[member] && (
+                                <span
+                                  style={{
+                                    color: "#dc2626",
+                                    fontSize: 12,
+                                    marginLeft: 6,
+                                    fontWeight: "bold",
+                                    backgroundColor: "#fef2f2",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    border: "1px solid #fecaca",
+                                  }}
+                                  title="This member is busy during the selected time."
+                                >
+                                  ⚠️ Busy - until{" "}
+                                  {memberConflictDetails[member]?.[0]?.endTime
+                                    ? formatDateTime(
+                                        memberConflictDetails[member]?.[0]
+                                          ?.endTime
+                                      )
+                                    : "unknown"}
+                                </span>
+                              )}
+                              {memberBusyMap[member] &&
+                                memberConflicts.length > 0 && (
+                                  <div
+                                    style={{
+                                      marginTop: "4px",
+                                      marginLeft: "20px",
+                                    }}
+                                  >
+                                    <div
                                       style={{
+                                        fontSize: "11px",
                                         color: "#dc2626",
-                                        fontSize: 12,
-                                        marginLeft: 6,
-                                        fontWeight: "bold",
-                                        backgroundColor: "#fef2f2",
-                                        padding: "2px 6px",
-                                        borderRadius: "4px",
-                                        border: "1px solid #fecaca",
                                       }}
-                                      title="This member is busy during the selected time."
                                     >
-                                      ⚠️ Busy - until{" "}
-                                      {memberConflictDetails[member]?.[0]
-                                        ?.endTime
-                                        ? formatDateTime(
-                                            memberConflictDetails[member]?.[0]
-                                              ?.endTime
-                                          )
-                                        : "unknown"}
-                                    </span>
-                                  )}
-                                  {memberBusyMap[member] &&
-                                    memberConflicts.length > 0 && (
-                                      <div
-                                        style={{
-                                          marginTop: "4px",
-                                          marginLeft: "20px",
-                                        }}
-                                      >
+                                      <strong>Conflicts:</strong>
+                                      {memberConflicts.map((conflict, idx) => (
                                         <div
+                                          key={idx}
                                           style={{
-                                            fontSize: "11px",
-                                            color: "#dc2626",
+                                            marginLeft: "8px",
+                                            fontSize: "10px",
                                           }}
                                         >
-                                          <strong>Conflicts:</strong>
-                                          {memberConflicts.map(
-                                            (conflict, idx) => (
-                                              <div
-                                                key={idx}
-                                                style={{
-                                                  marginLeft: "8px",
-                                                  fontSize: "10px",
-                                                }}
-                                              >
-                                                • {conflict.title} (
-                                                {formatDateTime(
-                                                  conflict.startTime
-                                                )}{" "}
-                                                -{" "}
-                                                {formatDateTime(
-                                                  conflict.endTime
-                                                )}
-                                                )
-                                              </div>
-                                            )
-                                          )}
+                                          • {conflict.title} (
+                                          {formatDateTime(conflict.startTime)} -{" "}
+                                          {formatDateTime(conflict.endTime)})
                                         </div>
-                                      </div>
-                                    )}
-                                </label>
-                              );
-                            })}
-                        </div>
-                      )}
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
                     {!selectedTeam && (
                       <p className="select-team-first">
                         Please select a team first to see available members
@@ -1311,16 +1456,25 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                       <Select
                         isMulti
                         closeMenuOnSelect={false}
-                        options={allEmployees.map((emp) => {
-                          const avail = employeeAvailability[emp.name];
-                          const isBusy = avail && avail.status === "busy";
-                          return {
-                            value: emp.name,
-                            label: emp.name,
-                            isDisabled: isBusy,
-                            endTime: avail && avail.endTime,
-                          };
-                        })}
+                        options={allEmployees
+                          .map((emp) => {
+                            const avail = employeeAvailability[emp.name];
+                            const isBusy = avail && avail.status === "busy";
+                            return {
+                              value: emp.name,
+                              label: emp.name,
+                              isDisabled: isBusy,
+                              endTime: avail && avail.endTime,
+                              isBusy: isBusy,
+                            };
+                          })
+                          .sort((a, b) => {
+                            // Sort busy employees first, then available employees
+                            if (a.isBusy && !b.isBusy) return -1;
+                            if (!a.isBusy && b.isBusy) return 1;
+                            // If both have same availability status, sort alphabetically
+                            return a.label.localeCompare(b.label);
+                          })}
                         formatOptionLabel={(option: any) => {
                           const avail = employeeAvailability[option.value];
                           if (avail && avail.status === "busy") {
