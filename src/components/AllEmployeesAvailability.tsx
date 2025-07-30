@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { meetingAPI, teamAPI } from "../services/api";
 import "./AllEmployeesAvailability.css";
+import { API_CONFIG } from "../config/api";
 
 interface Team {
   _id: string;
@@ -57,7 +58,7 @@ const AllEmployeesAvailability: React.FC = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/meetings/member-meetings?member=${encodeURIComponent(
+        `${API_CONFIG.BASE_URL}/api/meetings/member-meetings?member=${encodeURIComponent(
           member
         )}`
       );

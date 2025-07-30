@@ -14,12 +14,18 @@ import AllEmployeesAvailability from "./components/AllEmployeesAvailability";
 import AllEmployees from "./components/AllEmployees";
 import AllRooms from "./components/AllRooms";
 import CancelledMeetings from "./components/CancelledMeetings";
+import PastMeetings from "./components/PastMeetings";
 import IntroSlider from "./IntroSlider";
 import MeetingDetails from "./components/MeetingDetails";
+import Login from "./components/Auth/Login";
+import Register from "./components/Auth/Register";
+import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { meetingAPI, teamAPI } from "./services/api";
 import "./App.css";
 
-function App() {
+function AppContent() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +42,12 @@ function App() {
     "overview" | "management" | "dashboard"
   >("overview");
   const [showIntro, setShowIntro] = useState(true);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<{
+    title: string;
+    message: string;
+    type: "success" | "warning";
+  } | null>(null);
 
   // Load meetings and teams from database on component mount
   useEffect(() => {
@@ -83,6 +95,14 @@ function App() {
     try {
       setLoading(true);
       setError(null);
+
+      // Check if user is authenticated
+      if (!isAuthenticated) {
+        setError(
+          "You must be logged in to book a meeting. Please login first."
+        );
+        return;
+      }
 
       // Parse start and end time from booking (e.g., "09:00 AM")
       const parseTime = (dateStr: string, timeStr: string) => {
@@ -173,8 +193,28 @@ function App() {
 
       console.log("Meeting data to send:", meetingData);
 
-      const newMeeting = await meetingAPI.create(meetingData);
+      const response = await meetingAPI.create(meetingData);
+
+      // Handle the new response format
+      const newMeeting = response.meeting || response;
       setMeetings((prev) => [...prev, newMeeting]);
+
+      // Show custom success modal instead of browser alert
+      if (response.warning) {
+        setSuccessMessage({
+          title: "Meeting Booked Successfully!",
+          message: response.warning.message,
+          type: "warning",
+        });
+      } else {
+        setSuccessMessage({
+          title: "Meeting Booked Successfully!",
+          message: "Your meeting has been scheduled.",
+          type: "success",
+        });
+      }
+      setShowSuccessModal(true);
+
       setShowBookingForm(false);
       setSelectedTimeSlot && setSelectedTimeSlot(null);
     } catch (err: any) {
@@ -185,20 +225,6 @@ function App() {
         setError(
           "There is already a meeting scheduled for this team at the selected time."
         );
-      } else if (err.message?.includes("Attendee conflict detected")) {
-        // Extract busy attendees from error message if available
-        const busyAttendeesMatch = err.message.match(
-          /attendees are already booked for another meeting during this time: (.+)/
-        );
-        if (busyAttendeesMatch) {
-          setError(
-            `Cannot book meeting. The following attendees are busy: ${busyAttendeesMatch[1]}`
-          );
-        } else {
-          setError(
-            "Cannot book meeting. Some attendees are busy during the selected time."
-          );
-        }
       } else {
         setError(
           err instanceof Error
@@ -269,26 +295,33 @@ function App() {
     { id: "dashboard", label: "Dashboard", icon: "📊" },
   ];
 
-  if (loading && meetings.length === 0) {
+  // Removed loading screen - app will load directly
+
+  if (showIntro && teams.length > 0) {
+    return <IntroSlider teams={teams} onFinish={() => setShowIntro(false)} />;
+  }
+
+  // Show loading while authentication is being checked
+  if (authLoading) {
     return (
-      <div className="app">
-        <div className="header">
-          <h1>Meeting Booking App</h1>
-          <p>Schedule meetings for your 12 project teams</p>
-        </div>
-        <div className="container">
-          <div className="tab-content">
-            <div className="placeholder-content">
-              <div className="loading">Loading data...</div>
-            </div>
-          </div>
-        </div>
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
       </div>
     );
   }
 
-  if (showIntro && teams.length > 0) {
-    return <IntroSlider teams={teams} onFinish={() => setShowIntro(false)} />;
+  // If not authenticated, show intro or redirect to login
+  if (!isAuthenticated) {
+    return (
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Router>
+    );
   }
 
   return (
@@ -299,28 +332,218 @@ function App() {
           <Route
             path="calendar"
             element={
-              <Calendar teams={teams} onBookingSubmit={handleBookingSubmit} />
+              <ProtectedRoute>
+                <Calendar teams={teams} onBookingSubmit={handleBookingSubmit} />
+              </ProtectedRoute>
             }
           />
           <Route
             path="meetings"
             element={
-              <MeetingList
-                meetings={meetings}
-                teams={teams}
-                onDeleteMeeting={handleDeleteMeeting}
-              />
+              <ProtectedRoute>
+                <MeetingList
+                  meetings={meetings}
+                  teams={teams}
+                  onDeleteMeeting={handleDeleteMeeting}
+                />
+              </ProtectedRoute>
             }
           />
-          <Route path="cancelled" element={<CancelledMeetings />} />
-          <Route path="teams" element={<TeamOverview />} />
-          <Route path="availability" element={<AllEmployeesAvailability />} />
-          <Route path="employees" element={<AllEmployees teams={teams} />} />
-          <Route path="rooms" element={<AllRooms teams={teams} />} />
+          <Route
+            path="cancelled"
+            element={
+              <ProtectedRoute>
+                <CancelledMeetings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="past-meetings"
+            element={
+              <ProtectedRoute>
+                <PastMeetings meetings={meetings} teams={teams} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="teams"
+            element={
+              <ProtectedRoute>
+                <TeamOverview />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="availability"
+            element={
+              <ProtectedRoute>
+                <AllEmployeesAvailability />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="employees"
+            element={
+              <ProtectedRoute>
+                <AllEmployees teams={teams} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="rooms"
+            element={
+              <ProtectedRoute>
+                <AllRooms teams={teams} />
+              </ProtectedRoute>
+            }
+          />
         </Route>
-        <Route path="/meeting/:id" element={<MeetingDetails />} />
+        <Route
+          path="/meeting/:id"
+          element={
+            <ProtectedRoute>
+              <MeetingDetails />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/calendar" replace />} />
       </Routes>
+
+      {/* Custom Success Modal */}
+      {showSuccessModal && successMessage && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            className="modal-dialog"
+            style={{
+              background: "white",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "500px",
+              width: "90%",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+              position: "relative",
+            }}
+          >
+            <button
+              className="modal-close"
+              onClick={() => setShowSuccessModal(false)}
+              style={{
+                position: "absolute",
+                top: "12px",
+                right: "16px",
+                background: "none",
+                border: "none",
+                fontSize: "24px",
+                cursor: "pointer",
+                color: "#666",
+                width: "32px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f0f0f0";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              ×
+            </button>
+
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <div
+                style={{
+                  fontSize: "48px",
+                  marginBottom: "16px",
+                  color:
+                    successMessage.type === "warning" ? "#f59e0b" : "#10b981",
+                }}
+              >
+                {successMessage.type === "warning" ? "⚠️" : "✅"}
+              </div>
+              <h3
+                style={{
+                  margin: "0 0 12px 0",
+                  color: "#333",
+                  fontSize: "20px",
+                  fontWeight: "600",
+                }}
+              >
+                {successMessage.title}
+              </h3>
+              <p
+                style={{
+                  margin: "0",
+                  color: "#666",
+                  fontSize: "14px",
+                  lineHeight: "1.5",
+                }}
+              >
+                {successMessage.message}
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "12px",
+              }}
+            >
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                style={{
+                  background:
+                    successMessage.type === "warning" ? "#f59e0b" : "#10b981",
+                  color: "white",
+                  border: "none",
+                  padding: "12px 24px",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "opacity 0.3s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "0.8";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Router>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

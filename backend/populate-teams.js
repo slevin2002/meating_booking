@@ -1,15 +1,19 @@
-const mongoose = require("mongoose");
-const Team = require("./models/Team");
-const User = require("./models/User");
-require("dotenv").config({ path: "./config.env" });
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import Team from "./models/Team.js";
+import User from "./models/User.js";
+
+dotenv.config({ path: "./config.env" });
 
 // Connect to MongoDB
 mongoose
   .connect(
-    process.env.MONGODB_URI || "mongodb://localhost:27017/meeting_booking",
+    process.env.MONGO_URI || "mongodb://localhost:27017/meeting_booking",
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
     }
   )
   .then(() => console.log("Connected to MongoDB for team population"))

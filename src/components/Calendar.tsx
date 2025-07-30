@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { Booking } from "../types";
 import { meetingRooms } from "../data/teams";
 import "./Calendar.css";
+import { API_CONFIG } from "../config/api";
+import { useAuth } from "../contexts/AuthContext";
 import {
   FaRegClock,
   FaUsers,
@@ -107,6 +109,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   }>({});
   const [checkingDropdownAvailability, setCheckingDropdownAvailability] =
     useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   // Fetch all employees when booking form is opened
   useEffect(() => {
@@ -163,7 +167,9 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       await Promise.all(
         uniqueEmployeeNames.map(async (name) => {
           try {
-            const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+            const url = `${
+              API_CONFIG.BASE_URL
+            }/api/meetings/check-member-availability?member=${encodeURIComponent(
               name
             )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
             const response = await fetch(url);
@@ -226,7 +232,9 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       await Promise.all(
         membersToCheck.map(async (member) => {
           try {
-            const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+            const url = `${
+              API_CONFIG.BASE_URL
+            }/api/meetings/check-member-availability?member=${encodeURIComponent(
               member
             )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
             const response = await fetch(url);
@@ -291,7 +299,9 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       await Promise.all(
         meetingRooms.map(async (room) => {
           try {
-            const url = `http://localhost:5000/api/meetings/check-room-availability?room=${encodeURIComponent(
+            const url = `${
+              API_CONFIG.BASE_URL
+            }/api/meetings/check-room-availability?room=${encodeURIComponent(
               room
             )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
             const response = await fetch(url);
@@ -415,7 +425,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     const localDateString = `${year}-${month}-${day}`;
     try {
       const response = await fetch(
-        `http://localhost:5000/api/meetings?startDate=${localDateString}&endDate=${localDateString}`
+        `${API_CONFIG.BASE_URL}/api/meetings?startDate=${localDateString}&endDate=${localDateString}`
       );
       const data = await response.json();
       // Ensure each meeting has a teamName field
@@ -447,7 +457,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     const hoursDifference = timeDifference / (1000 * 60 * 60);
 
     if (hoursDifference < 2) {
-      alert("Meetings must be booked at least 2 hours in advance.");
+      setErrorMessage("Meetings must be booked at least 2 hours in advance.");
+      setShowErrorModal(true);
       return;
     }
 
@@ -495,7 +506,9 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         const conflictFormattedDate = `${conflictYear}-${conflictMonth}-${conflictDay}`;
 
         const response = await fetch(
-          `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+          `${
+            API_CONFIG.BASE_URL
+          }/api/meetings/check-member-availability?member=${encodeURIComponent(
             member
           )}&date=${conflictFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`
         );
@@ -525,8 +538,20 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     }
   };
 
+  const { isAuthenticated } = useAuth();
+
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setErrorMessage(
+        "You must be logged in to book a meeting. Please login first."
+      );
+      setShowErrorModal(true);
+      return;
+    }
+
     if (
       selectedStartTime &&
       selectedEndTime &&
@@ -546,7 +571,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       const hoursDifference = timeDifference / (1000 * 60 * 60);
 
       if (hoursDifference < 2) {
-        alert("Meetings must be booked at least 2 hours in advance.");
+        setErrorMessage("Meetings must be booked at least 2 hours in advance.");
+        setShowErrorModal(true);
         return;
       }
 
@@ -554,7 +580,8 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       const start = selectedStartTime;
       const end = selectedEndTime;
       if (end <= start) {
-        alert("End time must be after start time.");
+        setErrorMessage("End time must be after start time.");
+        setShowErrorModal(true);
         return;
       }
 
@@ -566,12 +593,16 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       const durationMinutes = endTotalMinutes - startTotalMinutes;
 
       if (durationMinutes < 15) {
-        alert("Meeting duration must be at least 15 minutes.");
+        setErrorMessage("Meeting duration must be at least 15 minutes.");
+        setShowErrorModal(true);
         return;
       }
 
       if (durationMinutes > 480) {
-        alert("Meeting duration cannot exceed 8 hours (480 minutes).");
+        setErrorMessage(
+          "Meeting duration cannot exceed 8 hours (480 minutes)."
+        );
+        setShowErrorModal(true);
         return;
       }
 
@@ -602,7 +633,9 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         const validationDay = String(selectedDate.getDate()).padStart(2, "0");
         const validationFormattedDate = `${validationYear}-${validationMonth}-${validationDay}`;
 
-        const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+        const url = `${
+          API_CONFIG.BASE_URL
+        }/api/meetings/check-member-availability?member=${encodeURIComponent(
           member
         )}&date=${validationFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
 
@@ -635,7 +668,9 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         const validationDay = String(selectedDate.getDate()).padStart(2, "0");
         const validationFormattedDate = `${validationYear}-${validationMonth}-${validationDay}`;
 
-        const roomUrl = `http://localhost:5000/api/meetings/check-room-availability?room=${encodeURIComponent(
+        const roomUrl = `${
+          API_CONFIG.BASE_URL
+        }/api/meetings/check-room-availability?room=${encodeURIComponent(
           selectedRoom
         )}&date=${validationFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
 
@@ -652,9 +687,10 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
             roomData
           );
           if (roomData.status === "busy") {
-            alert(
+            setErrorMessage(
               `Cannot book meeting. The selected room "${selectedRoom}" is busy during the selected time.`
             );
+            setShowErrorModal(true);
             return;
           }
         } else {
@@ -666,25 +702,16 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         }
       }
 
+      // Note: We no longer block or ask for confirmation for busy attendees
+      // The backend will handle this gracefully and show warnings
       if (busyAttendees.length > 0) {
-        alert(
-          `Cannot book meeting. The following attendees are busy during the selected time: \n${busyAttendees.join(
-            ", "
-          )}`
-        );
-        return;
+        console.log("Busy attendees detected:", busyAttendees);
+        console.log("Proceeding with booking - backend will handle warnings");
       }
 
-      // Check for member conflicts before booking
-      await checkMemberConflicts();
-
-      // If there are conflicts, show them but don't proceed
-      if (memberConflicts.length > 0) {
-        alert(
-          `Cannot book meeting. ${memberConflicts.length} member(s) have conflicts. Please check the conflict details below.`
-        );
-        return;
-      }
+      // Note: We no longer block booking for member conflicts
+      // The backend will handle busy attendees gracefully
+      // await checkMemberConflicts();
 
       console.log("Selected attendees before booking:", selectedAttendees);
 
@@ -826,7 +853,9 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
       await Promise.all(
         allEmployees.map(async (emp) => {
           try {
-            const url = `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+            const url = `${
+              API_CONFIG.BASE_URL
+            }/api/meetings/check-member-availability?member=${encodeURIComponent(
               emp.name
             )}&date=${checkFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
             const response = await fetch(url);
@@ -862,42 +891,34 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
     checkAllEmployeesAvailability();
   }, [checkAllEmployeesAvailability]);
 
-  // When team, time, or availability changes, auto-select all free team members
+  // When team, time, or availability changes, auto-select only free team members
   useEffect(() => {
     if (!selectedTeam || !selectedStartTime || !selectedEndTime) return;
 
-    // For General meeting, select all free employees
+    // For General meeting, select only free employees
     if (selectedTeam === "general") {
-      const freeEmployees = allEmployees
+      const freeEmployeeNames = allEmployees
         .map((emp) => emp.name)
         .filter((name) => !memberBusyMap[name]);
 
       // Only auto-select if user hasn't manually changed selection
-      const busySelected = selectedAttendees.filter((a) => memberBusyMap[a]);
-      if (
-        selectedAttendees.length === 0 ||
-        busySelected.length === selectedAttendees.length
-      ) {
-        setSelectedAttendees(freeEmployees);
+      if (selectedAttendees.length === 0) {
+        setSelectedAttendees(freeEmployeeNames);
       }
       return;
     }
 
     const teamObj = teams.find((t) => t._id === selectedTeam);
     if (!teamObj) return;
-    // Only select free members (not busy)
-    const freeMembers = teamObj.members.filter(
+
+    // Select only free team members (not busy ones)
+    const freeTeamMembers = teamObj.members.filter(
       (member) => !memberBusyMap[member]
     );
-    // Only auto-select if user hasn't manually changed selection (i.e., if selectedAttendees doesn't already include any busy members or is empty)
-    // If user has already unchecked a free member, don't re-add them
-    // We'll only auto-select if selectedAttendees is empty or only contains previously busy members
-    const busySelected = selectedAttendees.filter((a) => memberBusyMap[a]);
-    if (
-      selectedAttendees.length === 0 ||
-      busySelected.length === selectedAttendees.length
-    ) {
-      setSelectedAttendees(freeMembers);
+
+    // Only auto-select if user hasn't manually changed selection
+    if (selectedAttendees.length === 0) {
+      setSelectedAttendees(freeTeamMembers);
     }
   }, [
     selectedTeam,
@@ -1256,6 +1277,21 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
 
                 <div className="form-group">
                   <label>Select Attendees:</label>
+                  <div
+                    style={{
+                      background: "#f0f9ff",
+                      border: "1px solid #bae6fd",
+                      borderRadius: "6px",
+                      padding: "8px 12px",
+                      marginBottom: "15px",
+                      fontSize: "12px",
+                      color: "#0369a1",
+                    }}
+                  >
+                    ℹ️ <strong>Note:</strong> Only free team members are
+                    selected by default. Busy members are disabled and cannot be
+                    selected.
+                  </div>
                   <div className="attendees-selection">
                     {selectedTeam && (
                       <div className="team-members">
@@ -1293,7 +1329,22 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                               key={member}
                               className="attendee-checkbox"
                               style={{
-                                opacity: memberBusyMap[member] ? 0.5 : 1,
+                                opacity: memberBusyMap[member] ? 0.6 : 1,
+                                backgroundColor: memberBusyMap[member]
+                                  ? "#f5f5f5"
+                                  : "transparent",
+                                borderRadius: memberBusyMap[member]
+                                  ? "6px"
+                                  : "0",
+                                padding: memberBusyMap[member]
+                                  ? "4px 8px"
+                                  : "0",
+                                border: memberBusyMap[member]
+                                  ? "1px solid #d1d5db"
+                                  : "none",
+                                cursor: memberBusyMap[member]
+                                  ? "not-allowed"
+                                  : "pointer",
                               }}
                             >
                               <input
@@ -1314,6 +1365,12 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                                   }
                                 }}
                                 disabled={memberBusyMap[member]}
+                                style={{
+                                  opacity: memberBusyMap[member] ? 0.5 : 1,
+                                  cursor: memberBusyMap[member]
+                                    ? "not-allowed"
+                                    : "pointer",
+                                }}
                               />
                               <span className="attendee-name">
                                 {member}
@@ -1340,13 +1397,21 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                                 ) : (
                                   <span
                                     style={{
-                                      color: "#6b7280",
+                                      color: memberBusyMap[member]
+                                        ? "#dc2626"
+                                        : "#6b7280",
                                       fontSize: 10,
                                       marginLeft: 4,
+                                      fontWeight: memberBusyMap[member]
+                                        ? "600"
+                                        : "400",
                                     }}
                                   >
                                     (Status:{" "}
-                                    {memberBusyMap[member] ? "Busy" : "Free"})
+                                    {memberBusyMap[member]
+                                      ? "Busy - Disabled"
+                                      : "Free"}
+                                    )
                                   </span>
                                 )}
                               </span>
@@ -1362,7 +1427,7 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                                     borderRadius: "4px",
                                     border: "1px solid #fecaca",
                                   }}
-                                  title="This member is busy during the selected time."
+                                  title="This member is busy during the selected time and cannot be selected."
                                 >
                                   ⚠️ Busy - until{" "}
                                   {memberConflictDetails[member]?.[0]?.endTime
@@ -1659,39 +1724,11 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                   </div>
                 </div>
 
-                {memberConflicts.length > 0 && (
-                  <div className="conflicts-section">
-                    <h4>⚠️ Member Conflicts Detected</h4>
-                    <p>
-                      The following members have conflicts during this time:
-                    </p>
-                    {memberConflicts.map((conflict) => (
-                      <div key={conflict.member} className="member-conflict">
-                        <h5>{conflict.member}</h5>
-                        <div className="conflict-meetings">
-                          {conflict.conflicts.map((meeting, index) => (
-                            <div key={index} className="conflict-meeting">
-                              <strong>{meeting.title}</strong>
-                              <p>Team: {meeting.teamName}</p>
-                              <p>Room: {meeting.room}</p>
-                              <p>
-                                Time: {formatDateTime(meeting.startTime)} -{" "}
-                                {formatDateTime(meeting.endTime)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Note: Member conflicts are now handled gracefully by the backend */}
+                {/* Conflicts will be shown as warnings after booking, not blocking the booking */}
 
                 <div className="form-actions">
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={memberConflicts.length > 0}
-                  >
+                  <button type="submit" className="btn-primary">
                     Book Meeting
                   </button>
                   <button
@@ -1839,6 +1876,131 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                 onClick={() => setShowDayMeetings(false)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Error Modal */}
+      {showErrorModal && errorMessage && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            className="modal-dialog"
+            style={{
+              background: "white",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "500px",
+              width: "90%",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+              position: "relative",
+            }}
+          >
+            <button
+              className="modal-close"
+              onClick={() => setShowErrorModal(false)}
+              style={{
+                position: "absolute",
+                top: "12px",
+                right: "16px",
+                background: "none",
+                border: "none",
+                fontSize: "24px",
+                cursor: "pointer",
+                color: "#666",
+                width: "32px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f0f0f0";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              ×
+            </button>
+
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <div
+                style={{
+                  fontSize: "48px",
+                  marginBottom: "16px",
+                  color: "#ef4444",
+                }}
+              >
+                ❌
+              </div>
+              <h3
+                style={{
+                  margin: "0 0 12px 0",
+                  color: "#333",
+                  fontSize: "20px",
+                  fontWeight: "600",
+                }}
+              >
+                Error
+              </h3>
+              <p
+                style={{
+                  margin: "0",
+                  color: "#666",
+                  fontSize: "14px",
+                  lineHeight: "1.5",
+                }}
+              >
+                {errorMessage}
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "12px",
+              }}
+            >
+              <button
+                onClick={() => setShowErrorModal(false)}
+                style={{
+                  background: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  padding: "12px 24px",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "opacity 0.3s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "0.8";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                }}
+              >
+                OK
               </button>
             </div>
           </div>

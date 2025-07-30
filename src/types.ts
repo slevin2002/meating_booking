@@ -24,6 +24,7 @@ export interface Meeting {
   cancelReason?: string;
   isRecurring?: boolean;
   recurringPattern?: string;
+  createdBy?: { _id: string; name: string; email: string };
   createdAt?: string;
   updatedAt?: string;
 }

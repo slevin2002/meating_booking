@@ -1,13 +1,25 @@
-const API_BASE_URL = "http://localhost:5000/api";
+import {
+  API_CONFIG,
+  buildApiUrl,
+  buildApiUrlWithParams,
+  API_HEADERS,
+  handleApiError,
+} from "../config/api";
 
 // Generic API request function
 const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = endpoint.startsWith("http") ? endpoint : buildApiUrl(endpoint);
+
+  // Get token from localStorage for authenticated requests
+  const token = localStorage.getItem("token");
+
+  const headers = {
+    ...API_HEADERS,
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
 
   const defaultOptions: RequestInit = {
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
     ...options,
   };
 
@@ -16,8 +28,19 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+
+      // Handle authentication errors
+      if (response.status === 401) {
+        // Clear invalid token
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        throw new Error("Authentication failed. Please login again.");
+      }
+
       throw new Error(
-        errorData.message || `HTTP error! status: ${response.status}`
+        errorData.error ||
+          errorData.message ||
+          `HTTP error! status: ${response.status}`
       );
     }
 
@@ -40,24 +63,16 @@ export const meetingAPI = {
     page?: number;
     limit?: number;
   }) => {
-    const queryParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, value.toString());
-        }
-      });
-    }
-
-    const endpoint = `/meetings${
-      queryParams.toString() ? `?${queryParams.toString()}` : ""
-    }`;
+    const endpoint = buildApiUrlWithParams(
+      API_CONFIG.MEETINGS.GET_ALL,
+      params || {}
+    );
     return apiRequest(endpoint);
   },
 
   // Get meeting by ID
   getById: async (id: string) => {
-    return apiRequest(`/meetings/${id}`);
+    return apiRequest(API_CONFIG.MEETINGS.GET_BY_ID(id));
   },
 
   // Create new meeting
@@ -72,7 +87,7 @@ export const meetingAPI = {
     attendees: string[];
     status?: string;
   }) => {
-    return apiRequest("/meetings", {
+    return apiRequest(API_CONFIG.MEETINGS.CREATE, {
       method: "POST",
       body: JSON.stringify({
         ...meetingData,
@@ -96,7 +111,7 @@ export const meetingAPI = {
       status: string;
     }>
   ) => {
-    return apiRequest(`/meetings/${id}`, {
+    return apiRequest(API_CONFIG.MEETINGS.UPDATE(id), {
       method: "PUT",
       body: JSON.stringify(meetingData),
     });
@@ -104,22 +119,96 @@ export const meetingAPI = {
 
   // Delete meeting
   delete: async (id: string) => {
-    return apiRequest(`/meetings/${id}`, {
+    return apiRequest(API_CONFIG.MEETINGS.DELETE(id), {
       method: "DELETE",
     });
+  },
+
+  // Cancel meeting
+  cancel: async (id: string, cancelReason: string) => {
+    return apiRequest(API_CONFIG.MEETINGS.CANCEL(id), {
+      method: "PATCH",
+      body: JSON.stringify({ cancelReason }),
+    });
+  },
+
+  // Check room availability
+  checkRoomAvailability: async (params: {
+    room: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+  }) => {
+    const endpoint = buildApiUrlWithParams(
+      API_CONFIG.MEETINGS.CHECK_ROOM_AVAILABILITY,
+      params
+    );
+    return apiRequest(endpoint);
+  },
+
+  // Check member availability
+  checkMemberAvailability: async (params: {
+    member: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+  }) => {
+    const endpoint = buildApiUrlWithParams(
+      API_CONFIG.MEETINGS.CHECK_MEMBER_AVAILABILITY,
+      params
+    );
+    return apiRequest(endpoint);
+  },
+
+  // Get real-time status
+  getRealTimeStatus: async () => {
+    return apiRequest(API_CONFIG.MEETINGS.REAL_TIME_STATUS);
+  },
+
+  // Get employee current meetings
+  getEmployeeCurrentMeetings: async (employeeName: string) => {
+    const endpoint = buildApiUrlWithParams(
+      API_CONFIG.MEETINGS.EMPLOYEE_CURRENT_MEETINGS,
+      { employee: employeeName }
+    );
+    return apiRequest(endpoint);
+  },
+
+  // Get member meetings
+  getMemberMeetings: async (member: string) => {
+    const endpoint = buildApiUrlWithParams(
+      API_CONFIG.MEETINGS.MEMBER_MEETINGS,
+      { member }
+    );
+    return apiRequest(endpoint);
+  },
+
+  // Get stats overview
+  getStatsOverview: async () => {
+    return apiRequest(API_CONFIG.MEETINGS.STATS_OVERVIEW);
   },
 };
 
 // Team API functions
 export const teamAPI = {
   // Get all teams
-  getAll: async () => {
-    return apiRequest("/teams");
+  getAll: async (params?: {
+    search?: string;
+    status?: string;
+    lead?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const endpoint = buildApiUrlWithParams(
+      API_CONFIG.TEAMS.GET_ALL,
+      params || {}
+    );
+    return apiRequest(endpoint);
   },
 
   // Get team by ID
   getById: async (id: string) => {
-    return apiRequest(`/teams/${id}`);
+    return apiRequest(API_CONFIG.TEAMS.GET_BY_ID(id));
   },
 
   // Create new team
@@ -129,9 +218,10 @@ export const teamAPI = {
     lead: string;
     members: string[];
     status: string;
-    color?: string;
+    color: string;
+    description?: string;
   }) => {
-    return apiRequest("/teams", {
+    return apiRequest(API_CONFIG.TEAMS.CREATE, {
       method: "POST",
       body: JSON.stringify(teamData),
     });
@@ -147,9 +237,10 @@ export const teamAPI = {
       members: string[];
       status: string;
       color: string;
+      description: string;
     }>
   ) => {
-    return apiRequest(`/teams/${id}`, {
+    return apiRequest(API_CONFIG.TEAMS.UPDATE(id), {
       method: "PUT",
       body: JSON.stringify(teamData),
     });
@@ -157,9 +248,56 @@ export const teamAPI = {
 
   // Delete team
   delete: async (id: string) => {
-    return apiRequest(`/teams/${id}`, {
+    return apiRequest(API_CONFIG.TEAMS.DELETE(id), {
       method: "DELETE",
     });
+  },
+};
+
+// Authentication API functions
+export const authAPI = {
+  // Login user
+  login: async (credentials: { email: string; password: string }) => {
+    return apiRequest(API_CONFIG.USERS.LOGIN, {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    });
+  },
+
+  // Register user
+  register: async (userData: {
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+    teamId?: string;
+  }) => {
+    return apiRequest(API_CONFIG.USERS.REGISTER, {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
+  },
+
+  // Logout user (client-side only)
+  logout: () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  },
+
+  // Get current user from localStorage
+  getCurrentUser: () => {
+    const user = localStorage.getItem("user");
+    return user ? JSON.parse(user) : null;
+  },
+
+  // Get token from localStorage
+  getToken: () => {
+    return localStorage.getItem("token");
+  },
+
+  // Check if user is authenticated
+  isAuthenticated: () => {
+    return !!localStorage.getItem("token");
   },
 };
 
@@ -173,23 +311,16 @@ export const userAPI = {
     page?: number;
     limit?: number;
   }) => {
-    const queryParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, value.toString());
-        }
-      });
-    }
-    const endpoint = `/users${
-      queryParams.toString() ? `?${queryParams.toString()}` : ""
-    }`;
+    const endpoint = buildApiUrlWithParams(
+      API_CONFIG.USERS.GET_ALL,
+      params || {}
+    );
     return apiRequest(endpoint);
   },
 
   // Get user by ID
   getById: async (id: string) => {
-    return apiRequest(`/users/${id}`);
+    return apiRequest(API_CONFIG.USERS.GET_BY_ID(id));
   },
 
   // Create new user
@@ -199,7 +330,7 @@ export const userAPI = {
     role: string;
     teamId?: string;
   }) => {
-    return apiRequest("/users", {
+    return apiRequest(API_CONFIG.USERS.CREATE, {
       method: "POST",
       body: JSON.stringify(userData),
     });
@@ -215,7 +346,7 @@ export const userAPI = {
       teamId: string;
     }>
   ) => {
-    return apiRequest(`/users/${id}`, {
+    return apiRequest(API_CONFIG.USERS.UPDATE(id), {
       method: "PUT",
       body: JSON.stringify(userData),
     });
@@ -223,7 +354,7 @@ export const userAPI = {
 
   // Delete user
   delete: async (id: string) => {
-    return apiRequest(`/users/${id}`, {
+    return apiRequest(API_CONFIG.USERS.DELETE(id), {
       method: "DELETE",
     });
   },
@@ -231,12 +362,13 @@ export const userAPI = {
 
 // Health check
 export const healthCheck = async () => {
-  return apiRequest("/health");
+  return apiRequest(API_CONFIG.HEALTH);
 };
 
 export default {
   meetingAPI,
   teamAPI,
   userAPI,
+  authAPI,
   healthCheck,
 };

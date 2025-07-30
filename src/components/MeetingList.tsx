@@ -298,6 +298,25 @@ const MeetingList: React.FC<MeetingListProps> = ({
             <option value="all">All Meetings</option>
             <option value="scheduled">Scheduled Only</option>
           </select>
+          <button
+            onClick={() => navigate("/past-meetings")}
+            style={{
+              background: "linear-gradient(135deg, #667eea, #764ba2)",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              padding: "8px 16px",
+              fontSize: "14px",
+              fontWeight: "600",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            title="View Past Meetings History"
+          >
+            📅 Past Meetings
+          </button>
         </div>
       </div>
 
@@ -356,6 +375,16 @@ const MeetingList: React.FC<MeetingListProps> = ({
                       style={{ marginLeft: 4, color: "#666", fontWeight: 500 }}
                     >
                       {formatDateTime(meeting.endTime)}
+                    </span>
+                    <span
+                      style={{ marginLeft: 16, fontWeight: 700, color: "#333" }}
+                    >
+                      Booked by:
+                    </span>
+                    <span
+                      style={{ marginLeft: 4, color: "#666", fontWeight: 500 }}
+                    >
+                      {meeting.createdBy?.name || "Unknown"}
                     </span>
                   </div>
                   <div

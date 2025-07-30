@@ -16,9 +16,6 @@ const validateUser = [
   body("password")
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters long"),
-  body("role")
-    .isIn(["admin", "user"])
-    .withMessage("Role must be admin or user"),
 ];
 
 const validateLogin = [
@@ -51,14 +48,6 @@ router.post("/register", validateUser, async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: req.body.email });
-    if (existingUser) {
-      return res
-        .status(400)
-        .json({ error: "User with this email already exists" });
-    }
-
     // Validate team if provided
     if (req.body.teamId) {
       const team = await Team.findById(req.body.teamId);
@@ -67,18 +56,39 @@ router.post("/register", validateUser, async (req, res) => {
       }
     }
 
-    const user = new User(req.body);
-    await user.save();
+    // Check if user already exists in User model
+    const existingUser = await User.findOne({
+      email: req.body.email,
+    });
+    if (!existingUser) {
+      return res.status(400).json({
+        error:
+          "Email not found in system. Please contact administrator to add your email.",
+      });
+    }
+
+    // Update existing user with password and other registration data
+    existingUser.password = req.body.password;
+    existingUser.name = req.body.name;
+    if (req.body.teamId) {
+      existingUser.teamId = req.body.teamId;
+    }
+    await existingUser.save();
+    const user = existingUser;
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
+      {
+        userId: user._id,
+        email: user.email,
+        role: user.role || "user",
+      },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
 
     res.status(201).json({
-      message: "User registered successfully",
+      message: "Registration successful",
       user: user.toJSON(),
       token,
     });
@@ -105,9 +115,11 @@ router.post("/login", validateLogin, async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(401).json({ error: "Account is deactivated" });
+    // Check if user has a password set (has registered)
+    if (!user.password || user.password.length === 0) {
+      return res.status(401).json({
+        error: "Account not activated. Please register first.",
+      });
     }
 
     // Verify password
@@ -122,7 +134,11 @@ router.post("/login", validateLogin, async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
+      {
+        userId: user._id,
+        email: user.email,
+        role: user.role || "user",
+      },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );

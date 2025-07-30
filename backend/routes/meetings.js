@@ -1,8 +1,26 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
+const jwt = require("jsonwebtoken");
 const Meeting = require("../models/Meeting");
 const Team = require("../models/Team");
 const router = express.Router();
+
+// Authentication middleware
+const authMiddleware = (req, res, next) => {
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+
+  if (!token) {
+    return res.status(401).json({ error: "Access denied. No token provided." });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ error: "Invalid token." });
+  }
+};
 
 // Add normalization helper at the top
 const normalizeName = (name) => name.trim().toLowerCase();
@@ -83,6 +101,8 @@ router.get("/", async (req, res) => {
 
     const meetings = await Meeting.find(query)
       .populate("teamId", "name color")
+      .populate("createdBy", "name email")
+      .populate("cancelledBy", "name email")
       .sort({ startTime: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -486,7 +506,10 @@ router.get("/employee-current-meetings", async (req, res) => {
       status: { $ne: "cancelled" },
       startTime: { $lte: checkDateTimeUTC },
       endTime: { $gt: checkDateTimeUTC },
-    }).populate("teamId", "name color");
+    })
+      .populate("teamId", "name color")
+      .populate("createdBy", "name email")
+      .populate("cancelledBy", "name email");
 
     const status = currentMeetings.length > 0 ? "busy" : "free";
 
@@ -548,6 +571,8 @@ router.get("/member-meetings", async (req, res) => {
     // Find all meetings where this member is an attendee
     const meetings = await Meeting.find(query)
       .populate("teamId", "name color")
+      .populate("createdBy", "name email")
+      .populate("cancelledBy", "name email")
       .sort({ startTime: 1 });
 
     console.log(
@@ -575,10 +600,10 @@ router.get("/member-meetings", async (req, res) => {
 router.get("/:id", async (req, res) => {
   console.log("Meeting by ID route hit with id:", req.params.id);
   try {
-    const meeting = await Meeting.findById(req.params.id).populate(
-      "teamId",
-      "name color"
-    );
+    const meeting = await Meeting.findById(req.params.id)
+      .populate("teamId", "name color")
+      .populate("createdBy", "name email")
+      .populate("cancelledBy", "name email");
     if (!meeting) {
       return res.status(404).json({ error: "Meeting not found" });
     }
@@ -592,7 +617,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // Create new meeting
-router.post("/", validateMeeting, async (req, res) => {
+router.post("/", authMiddleware, validateMeeting, async (req, res) => {
   try {
     console.log("Creating meeting with data:", req.body);
     const errors = validationResult(req);
@@ -665,15 +690,8 @@ router.post("/", validateMeeting, async (req, res) => {
       }
     }
     console.log("Busy attendees found:", busyAttendees);
-    if (busyAttendees.length > 0) {
-      return res.status(400).json({
-        error: "Attendee conflict detected",
-        message: `The following attendees are already booked for another meeting during this time: ${busyAttendees.join(
-          ", "
-        )}`,
-        busyAttendees,
-      });
-    }
+    // Note: We no longer block the booking for busy attendees
+    // The booking will proceed but include busy attendees info in response
     // --- End attendee conflict check ---
 
     // Get team name
@@ -682,22 +700,10 @@ router.post("/", validateMeeting, async (req, res) => {
       return res.status(404).json({ error: "Team not found" });
     }
 
-    // Get or create system user for meetings without authentication
-    let createdBy = req.user?.id;
+    // Get user ID from JWT token
+    let createdBy = req.user?.userId;
     if (!createdBy) {
-      const User = require("../models/User");
-      let systemUser = await User.findOne({ email: "system@company.com" });
-      if (!systemUser) {
-        systemUser = new User({
-          name: "System User",
-          email: "system@company.com",
-          password: "system123",
-          role: "admin",
-          isActive: true,
-        });
-        await systemUser.save();
-      }
-      createdBy = systemUser._id;
+      return res.status(401).json({ error: "User authentication required" });
     }
 
     const meetingData = {
@@ -714,11 +720,28 @@ router.post("/", validateMeeting, async (req, res) => {
     await meeting.save();
     console.log("Meeting saved successfully:", meeting);
 
-    const populatedMeeting = await Meeting.findById(meeting._id).populate(
-      "teamId",
-      "name color"
-    );
-    res.status(201).json(populatedMeeting);
+    const populatedMeeting = await Meeting.findById(meeting._id)
+      .populate("teamId", "name color")
+      .populate("createdBy", "name email")
+      .populate("cancelledBy", "name email");
+
+    // Include busy attendees info in response if any
+    const response = {
+      meeting: populatedMeeting,
+      success: true,
+      message: "Meeting created successfully",
+    };
+
+    if (busyAttendees.length > 0) {
+      response.warning = {
+        message: `Meeting created successfully, but the following attendees are busy during this time: ${busyAttendees.join(
+          ", "
+        )}`,
+        busyAttendees: busyAttendees,
+      };
+    }
+
+    res.status(201).json(response);
   } catch (error) {
     console.error(error); // Log the error for debugging
     res
@@ -728,7 +751,7 @@ router.post("/", validateMeeting, async (req, res) => {
 });
 
 // Update meeting
-router.put("/:id", validateMeeting, async (req, res) => {
+router.put("/:id", authMiddleware, validateMeeting, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -738,7 +761,10 @@ router.put("/:id", validateMeeting, async (req, res) => {
     const meeting = await Meeting.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
-    }).populate("teamId", "name color");
+    })
+      .populate("teamId", "name color")
+      .populate("createdBy", "name email")
+      .populate("cancelledBy", "name email");
 
     if (!meeting) {
       return res.status(404).json({ error: "Meeting not found" });
@@ -754,7 +780,7 @@ router.put("/:id", validateMeeting, async (req, res) => {
 });
 
 // Delete meeting
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const meeting = await Meeting.findByIdAndDelete(req.params.id);
     if (!meeting) {
@@ -770,7 +796,7 @@ router.delete("/:id", async (req, res) => {
 });
 
 // Cancel meeting with reason
-router.patch("/:id/cancel", async (req, res) => {
+router.patch("/:id/cancel", authMiddleware, async (req, res) => {
   try {
     const { cancelReason } = req.body;
 
@@ -799,12 +825,20 @@ router.patch("/:id/cancel", async (req, res) => {
     // Update meeting status to cancelled and add reason
     meeting.status = "cancelled";
     meeting.cancelReason = cancelReason.trim();
+    meeting.cancelledBy = req.user.userId; // Track who cancelled the meeting
+
+    console.log("Cancelling meeting:", {
+      meetingId: req.params.id,
+      cancelledBy: req.user.userId,
+      userEmail: req.user.email,
+    });
+
     await meeting.save();
 
-    const populatedMeeting = await Meeting.findById(req.params.id).populate(
-      "teamId",
-      "name color"
-    );
+    const populatedMeeting = await Meeting.findById(req.params.id)
+      .populate("teamId", "name color")
+      .populate("createdBy", "name email")
+      .populate("cancelledBy", "name email");
 
     res.json({
       message: "Meeting cancelled successfully",

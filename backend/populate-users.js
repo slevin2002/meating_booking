@@ -1,6 +1,8 @@
-const mongoose = require("mongoose");
-const User = require("./models/User");
-require("dotenv").config({ path: "./config.env" });
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import User from "./models/User.js";
+
+dotenv.config({ path: "./config.env" });
 
 const users = [
   { name: "Bhavishya", email: "bhavishya.kerpada@gmail.com" },
@@ -39,7 +41,12 @@ const users = [
 ];
 
 async function main() {
-  await mongoose.connect(process.env.MONGO_URI);
+  await mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+  });
   await User.deleteMany({}); // Optional: clear existing users
   await User.insertMany(
     users.map((u) => ({ ...u, role: "user", password: "password123" }))

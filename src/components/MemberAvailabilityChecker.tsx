@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { meetingAPI, teamAPI } from "../services/api";
 import "./MemberAvailabilityChecker.css";
+import { API_CONFIG } from "../config/api";
 
 interface Team {
   _id: string;
@@ -84,7 +85,7 @@ const MemberAvailabilityChecker: React.FC = () => {
       const availabilityPromises = allMembers.map(async (member) => {
         try {
           const response = await fetch(
-            `http://localhost:5000/api/meetings/check-member-availability?member=${encodeURIComponent(
+            `${API_CONFIG.BASE_URL}/api/meetings/check-member-availability?member=${encodeURIComponent(
               member
             )}&date=${selectedDate}&startTime=${startTime}&endTime=${endTime}`
           );

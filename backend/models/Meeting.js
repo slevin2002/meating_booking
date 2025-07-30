@@ -76,6 +76,13 @@ const meetingSchema = new mongoose.Schema(
       ref: "User",
       required: [true, "Creator is required"],
     },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: function () {
+        return this.status === "cancelled";
+      },
+    },
   },
   {
     timestamps: true,

@@ -25,7 +25,7 @@ const limiter = rateLimit({
 // Database connection
 mongoose
   .connect(
-    process.env.MONGODB_URI || "mongodb://localhost:27017/meeting_booking",
+    process.env.MONGO_URI || "mongodb://localhost:27017/meeting_booking",
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,

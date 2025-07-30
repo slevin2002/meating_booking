@@ -171,4 +171,5 @@ export const meetingRooms = [
   "Balcony (Capacity: 8)",
   "sit out (Capacity: 6)",
   "lunch hall (Capacity: 15)",
+  "main hall (General Meetings only) (Capacity: 40)",
 ];

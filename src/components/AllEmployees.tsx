@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import "./AllEmployees.css";
+import { API_CONFIG } from "../config/api";
 
 interface Team {
   _id: string;
@@ -34,7 +35,6 @@ const AllEmployees: React.FC<AllEmployeesProps> = ({ teams }) => {
     []
   );
   const [loading, setLoading] = useState(true);
-  const [initialLoading, setInitialLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +81,7 @@ const AllEmployees: React.FC<AllEmployeesProps> = ({ teams }) => {
         const currentMinute = String(now.getMinutes()).padStart(2, "0");
         const currentTime = `${currentHour}:${currentMinute}`;
 
-        const apiUrl = `http://localhost:5000/api/status/all-employees?date=${currentDate}&time=${currentTime}`;
+        const apiUrl = `${API_CONFIG.BASE_URL}/api/status/all-employees?date=${currentDate}&time=${currentTime}`;
         console.log("FETCHING ALL EMPLOYEES STATUS:", apiUrl);
 
         const response = await fetch(apiUrl);
@@ -105,10 +105,7 @@ const AllEmployees: React.FC<AllEmployeesProps> = ({ teams }) => {
         setLastUpdated(new Date());
         setLoading(false);
 
-        // Set initial loading to false after 3 seconds
-        setTimeout(() => {
-          setInitialLoading(false);
-        }, 3000);
+        // Removed initial loading timeout
       } catch (error) {
         console.error("Error fetching employee statuses:", error);
         setError("Failed to load employee statuses. Please try again.");
@@ -177,19 +174,7 @@ const AllEmployees: React.FC<AllEmployeesProps> = ({ teams }) => {
 
   return (
     <div className="all-employees">
-      {initialLoading ? (
-        <div className="initial-loading">
-          <div className="loading-slider">
-            <div className="slider-content">
-              <h2>Loading Employee Status...</h2>
-              <div className="slider-bar">
-                <div className="slider-progress"></div>
-              </div>
-              <p>Fetching real-time employee data...</p>
-            </div>
-          </div>
-        </div>
-      ) : (
+      {
         <>
           {/* Removed header, stats, and last-updated sections */}
           <div className="table-container">
@@ -281,7 +266,7 @@ const AllEmployees: React.FC<AllEmployeesProps> = ({ teams }) => {
             </table>
           </div>
         </>
-      )}
+      }
     </div>
   );
 };

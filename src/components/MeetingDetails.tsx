@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FaTimes, FaExclamationTriangle } from "react-icons/fa";
+import { API_CONFIG } from "../config/api";
+import { meetingAPI } from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
 
 const MeetingDetails: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [meeting, setMeeting] = useState<any>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -13,9 +17,16 @@ const MeetingDetails: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/meetings/${id}`)
-      .then((res) => res.json())
-      .then((data) => setMeeting(data));
+    const fetchMeeting = async () => {
+      try {
+        const response = await meetingAPI.getById(id!);
+        setMeeting(response);
+      } catch (error) {
+        console.error("Failed to fetch meeting:", error);
+      }
+    };
+
+    fetchMeeting();
   }, [id]);
 
   if (!meeting)
@@ -37,29 +48,18 @@ const MeetingDetails: React.FC = () => {
     setCancelError(null);
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/meetings/${id}/cancel`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ cancelReason: cancelReason.trim() }),
-        }
-      );
+      const response = await meetingAPI.cancel(id!, cancelReason.trim());
 
-      if (response.ok) {
-        const data = await response.json();
-        setMeeting(data.meeting);
+      if (response.meeting) {
+        setMeeting(response.meeting);
         setShowCancelModal(false);
         setCancelReason("");
         setShowSuccessModal(true);
       } else {
-        const errorData = await response.json();
-        setCancelError(errorData.error || "Failed to cancel meeting");
+        setCancelError(response.error || "Failed to cancel meeting");
       }
-    } catch (error) {
-      setCancelError("Network error. Please try again.");
+    } catch (error: any) {
+      setCancelError(error.message || "Network error. Please try again.");
     } finally {
       setCancelling(false);
     }
@@ -165,6 +165,25 @@ const MeetingDetails: React.FC = () => {
             {formatTime(meeting.createdAt)}
           </span>
         </div>
+        {meeting.createdBy && (
+          <div style={{ marginBottom: 0 }}>
+            <span style={{ color: "#888", fontWeight: 600 }}>Booked by:</span>
+            <span style={{ marginLeft: 8, color: "#333", fontWeight: 500 }}>
+              {meeting.createdBy.name}
+            </span>
+          </div>
+        )}
+
+        {meeting.cancelledBy && (
+          <div style={{ marginBottom: 0 }}>
+            <span style={{ color: "#dc2626", fontWeight: 600 }}>
+              Cancelled by:
+            </span>
+            <span style={{ marginLeft: 8, color: "#dc2626", fontWeight: 500 }}>
+              {meeting.cancelledBy.name}
+            </span>
+          </div>
+        )}
 
         {meeting.cancelReason && (
           <div style={{ marginTop: 16, marginBottom: 16 }}>
@@ -321,81 +340,148 @@ const MeetingDetails: React.FC = () => {
             left: 0,
             width: "100%",
             height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 1000,
+            animation: "fadeIn 0.3s ease-out",
           }}
         >
           <div
             style={{
               background: "white",
-              borderRadius: "12px",
-              padding: "24px",
-              maxWidth: "400px",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "450px",
               width: "90%",
               textAlign: "center",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+              animation: "slideUp 0.4s ease-out",
+              border: "1px solid rgba(16, 185, 129, 0.2)",
             }}
           >
             <div
               style={{
-                width: "60px",
-                height: "60px",
+                width: "80px",
+                height: "80px",
                 borderRadius: "50%",
-                background: "#10b981",
+                background: "linear-gradient(135deg, #10b981, #059669)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                margin: "0 auto 16px auto",
-                fontSize: "24px",
+                margin: "0 auto 24px auto",
+                fontSize: "32px",
+                boxShadow: "0 8px 24px rgba(16, 185, 129, 0.3)",
+                animation: "bounceIn 0.6s ease-out",
               }}
             >
               ✅
             </div>
             <h3
               style={{
-                margin: "0 0 12px 0",
-                fontSize: "18px",
-                fontWeight: "600",
+                margin: "0 0 16px 0",
+                fontSize: "24px",
+                fontWeight: "700",
                 color: "#1f2937",
+                background: "linear-gradient(135deg, #10b981, #059669)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
               }}
             >
               Meeting Cancelled Successfully!
             </h3>
             <p
               style={{
-                margin: "0 0 20px 0",
-                fontSize: "14px",
+                margin: "0 0 24px 0",
+                fontSize: "16px",
                 color: "#6b7280",
-                lineHeight: "1.5",
+                lineHeight: "1.6",
               }}
             >
-              The meeting has been cancelled and the reason has been recorded.
+              The meeting has been cancelled by {user?.name || "you"} and the
+              reason has been recorded in the system.
             </p>
-            <button
-              onClick={() => {
-                setShowSuccessModal(false);
-                navigate(-1);
-              }}
+            <div
               style={{
-                background: "#10b981",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                padding: "10px 20px",
-                fontSize: "14px",
-                fontWeight: "500",
-                cursor: "pointer",
-                minWidth: "100px",
+                display: "flex",
+                gap: "12px",
+                justifyContent: "center",
               }}
             >
-              OK
-            </button>
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  navigate(-1);
+                }}
+                style={{
+                  background: "linear-gradient(135deg, #10b981, #059669)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "12px 24px",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  minWidth: "120px",
+                  boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                  transition: "all 0.3s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 6px 16px rgba(16, 185, 129, 0.4)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 12px rgba(16, 185, 129, 0.3)";
+                }}
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          
+          @keyframes slideUp {
+            from { 
+              opacity: 0; 
+              transform: translateY(30px); 
+            }
+            to { 
+              opacity: 1; 
+              transform: translateY(0); 
+            }
+          }
+          
+          @keyframes bounceIn {
+            0% { 
+              transform: scale(0.3); 
+              opacity: 0; 
+            }
+            50% { 
+              transform: scale(1.05); 
+            }
+            70% { 
+              transform: scale(0.9); 
+            }
+            100% { 
+              transform: scale(1); 
+              opacity: 1; 
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./AllRooms.css";
+import { API_CONFIG } from "../config/api";
 
 interface RoomStatus {
   room: string;
@@ -22,7 +23,6 @@ const AllRooms: React.FC<AllRoomsProps> = ({ teams }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [roomStatuses, setRoomStatuses] = useState<RoomStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [initialLoading, setInitialLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +43,7 @@ const AllRooms: React.FC<AllRoomsProps> = ({ teams }) => {
         const currentMinute = String(now.getMinutes()).padStart(2, "0");
         const currentTime = `${currentHour}:${currentMinute}`;
 
-        const apiUrl = `http://localhost:5000/api/status/all-rooms?date=${currentDate}&time=${currentTime}`;
+        const apiUrl = `${API_CONFIG.BASE_URL}/api/status/all-rooms?date=${currentDate}&time=${currentTime}`;
         console.log("FETCHING ROOM STATUSES:", apiUrl);
 
         const response = await fetch(apiUrl);
@@ -67,10 +67,7 @@ const AllRooms: React.FC<AllRoomsProps> = ({ teams }) => {
         setLastUpdated(new Date());
         setLoading(false);
 
-        // Set initial loading to false after 3 seconds
-        setTimeout(() => {
-          setInitialLoading(false);
-        }, 3000);
+        // Removed initial loading timeout
       } catch (error) {
         console.error("Error fetching room statuses:", error);
         setError("Failed to load room statuses. Please try again.");
@@ -119,19 +116,7 @@ const AllRooms: React.FC<AllRoomsProps> = ({ teams }) => {
 
   return (
     <div className="all-rooms">
-      {initialLoading ? (
-        <div className="initial-loading">
-          <div className="loading-slider">
-            <div className="slider-content">
-              <h2>Loading Room Status...</h2>
-              <div className="slider-bar">
-                <div className="slider-progress"></div>
-              </div>
-              <p>Fetching real-time room data...</p>
-            </div>
-          </div>
-        </div>
-      ) : (
+      {
         <>
           {/* Removed header, stats, last-updated, and footer sections */}
           <div className="table-container">
@@ -214,7 +199,7 @@ const AllRooms: React.FC<AllRoomsProps> = ({ teams }) => {
             </table>
           </div>
         </>
-      )}
+      }
     </div>
   );
 };

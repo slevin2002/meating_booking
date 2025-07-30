@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaInfoCircle, FaExclamationTriangle } from "react-icons/fa";
 import "./MeetingList.css";
+import { API_CONFIG } from "../config/api";
 
 interface CancelledMeeting {
   _id: string;
@@ -41,7 +42,7 @@ const CancelledMeetings: React.FC = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        "http://localhost:5000/api/meetings?status=cancelled"
+        `${API_CONFIG.BASE_URL}/api/meetings?status=cancelled`
       );
       if (response.ok) {
         const data = await response.json();
