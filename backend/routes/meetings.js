@@ -3,6 +3,11 @@ const { body, validationResult } = require("express-validator");
 const jwt = require("jsonwebtoken");
 const Meeting = require("../models/Meeting");
 const Team = require("../models/Team");
+const User = require("../models/User");
+const {
+  sendMeetingInvitations,
+  sendMeetingCancellationEmail,
+} = require("../utils/emailService");
 const router = express.Router();
 
 // Authentication middleware
@@ -725,6 +730,25 @@ router.post("/", authMiddleware, validateMeeting, async (req, res) => {
       .populate("createdBy", "name email")
       .populate("cancelledBy", "name email");
 
+    // Send email notifications to attendees
+    let emailResults = null;
+    try {
+      if (normalizedAttendees.length > 0) {
+        console.log(
+          "Sending email notifications to attendees:",
+          normalizedAttendees
+        );
+        emailResults = await sendMeetingInvitations(
+          populatedMeeting,
+          populatedMeeting.createdBy
+        );
+        console.log("Email notification results:", emailResults);
+      }
+    } catch (emailError) {
+      console.error("Error sending email notifications:", emailError);
+      // Don't fail the meeting creation if email fails
+    }
+
     // Include busy attendees info in response if any
     const response = {
       meeting: populatedMeeting,
@@ -738,6 +762,15 @@ router.post("/", authMiddleware, validateMeeting, async (req, res) => {
           ", "
         )}`,
         busyAttendees: busyAttendees,
+      };
+    }
+
+    // Include email notification results in response
+    if (emailResults) {
+      response.emailNotifications = {
+        total: emailResults.total,
+        successful: emailResults.successful,
+        failed: emailResults.failed,
       };
     }
 
@@ -840,10 +873,44 @@ router.patch("/:id/cancel", authMiddleware, async (req, res) => {
       .populate("createdBy", "name email")
       .populate("cancelledBy", "name email");
 
-    res.json({
+    // Send cancellation email notifications to attendees
+    let emailResults = null;
+    try {
+      if (meeting.attendees && meeting.attendees.length > 0) {
+        console.log(
+          "Sending cancellation email notifications to attendees:",
+          meeting.attendees
+        );
+        emailResults = await sendMeetingCancellationEmail(
+          populatedMeeting,
+          populatedMeeting.cancelledBy,
+          meeting.attendees
+        );
+        console.log("Cancellation email notification results:", emailResults);
+      }
+    } catch (emailError) {
+      console.error(
+        "Error sending cancellation email notifications:",
+        emailError
+      );
+      // Don't fail the cancellation if email fails
+    }
+
+    const response = {
       message: "Meeting cancelled successfully",
       meeting: populatedMeeting,
-    });
+    };
+
+    // Include email notification results in response
+    if (emailResults) {
+      response.emailNotifications = {
+        total: emailResults.total,
+        successful: emailResults.successful,
+        failed: emailResults.failed,
+      };
+    }
+
+    res.json(response);
   } catch (error) {
     console.error("Error cancelling meeting:", error);
     res.status(500).json({

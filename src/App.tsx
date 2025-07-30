@@ -200,19 +200,32 @@ function AppContent() {
       setMeetings((prev) => [...prev, newMeeting]);
 
       // Show custom success modal instead of browser alert
+      let message = "Your meeting has been scheduled.";
+      let type: "success" | "warning" = "success";
+
       if (response.warning) {
-        setSuccessMessage({
-          title: "Meeting Booked Successfully!",
-          message: response.warning.message,
-          type: "warning",
-        });
-      } else {
-        setSuccessMessage({
-          title: "Meeting Booked Successfully!",
-          message: "Your meeting has been scheduled.",
-          type: "success",
-        });
+        message = response.warning.message;
+        type = "warning";
       }
+
+      // Add email notification information
+      if (response.emailNotifications) {
+        const { total, successful, failed } = response.emailNotifications;
+        if (successful > 0) {
+          message += `\n\n📧 Email notifications sent to ${successful} out of ${total} attendees.`;
+          if (failed > 0) {
+            message += `\n⚠️ Failed to send ${failed} email(s).`;
+          }
+        } else if (failed > 0) {
+          message += `\n\n⚠️ Failed to send email notifications to ${failed} attendees.`;
+        }
+      }
+
+      setSuccessMessage({
+        title: "Meeting Booked Successfully!",
+        message: message,
+        type: type,
+      });
       setShowSuccessModal(true);
 
       setShowBookingForm(false);
@@ -489,16 +502,18 @@ function AppContent() {
               >
                 {successMessage.title}
               </h3>
-              <p
+              <div
                 style={{
                   margin: "0",
                   color: "#666",
                   fontSize: "14px",
-                  lineHeight: "1.5",
+                  lineHeight: "1.6",
+                  textAlign: "left",
+                  whiteSpace: "pre-line",
                 }}
               >
                 {successMessage.message}
-              </p>
+              </div>
             </div>
 
             <div

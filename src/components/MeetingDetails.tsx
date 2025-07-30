@@ -15,6 +15,7 @@ const MeetingDetails: React.FC = () => {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     const fetchMeeting = async () => {
@@ -54,6 +55,27 @@ const MeetingDetails: React.FC = () => {
         setMeeting(response.meeting);
         setShowCancelModal(false);
         setCancelReason("");
+
+        // Add email notification information to success message
+        let successMessage =
+          "The meeting has been cancelled by " +
+          (user?.name || "you") +
+          " and the reason has been recorded in the system.";
+
+        if (response.emailNotifications) {
+          const { total, successful, failed } = response.emailNotifications;
+          if (successful > 0) {
+            successMessage += `\n\n📧 Cancellation notifications sent to ${successful} out of ${total} attendees.`;
+            if (failed > 0) {
+              successMessage += `\n⚠️ Failed to send ${failed} email(s).`;
+            }
+          } else if (failed > 0) {
+            successMessage += `\n\n⚠️ Failed to send cancellation notifications to ${failed} attendees.`;
+          }
+        }
+
+        // Store the success message in state or pass it to the modal
+        setSuccessMessage(successMessage);
         setShowSuccessModal(true);
       } else {
         setCancelError(response.error || "Failed to cancel meeting");
@@ -392,17 +414,21 @@ const MeetingDetails: React.FC = () => {
             >
               Meeting Cancelled Successfully!
             </h3>
-            <p
+            <div
               style={{
                 margin: "0 0 24px 0",
                 fontSize: "16px",
                 color: "#6b7280",
                 lineHeight: "1.6",
+                textAlign: "left",
+                whiteSpace: "pre-line",
               }}
             >
-              The meeting has been cancelled by {user?.name || "you"} and the
-              reason has been recorded in the system.
-            </p>
+              {successMessage ||
+                `The meeting has been cancelled by ${
+                  user?.name || "you"
+                } and the reason has been recorded in the system.`}
+            </div>
             <div
               style={{
                 display: "flex",
