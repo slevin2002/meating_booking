@@ -176,6 +176,54 @@
   transform: none;
 }
 
+/* Registration Method Toggle */
+
+/* OTP Input Group */
+.otp-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.otp-input-group input {
+  flex: 1;
+}
+
+.otp-request-btn {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.otp-request-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.otp-request-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.otp-sent-message {
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+  border-radius: 5px;
+  font-size: 14px;
+  text-align: center;
+  border-left: 4px solid #28a745;
+}
+
 .auth-footer {
   text-align: center;
   margin-top: 2rem;

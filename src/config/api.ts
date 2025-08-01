@@ -39,6 +39,8 @@ export const API_CONFIG = {
     DELETE: (id: string) => `/api/users/${id}`,
     LOGIN: "/api/users/login",
     REGISTER: "/api/users/register",
+    REQUEST_OTP: "/api/users/request-otp",
+    VERIFY_OTP: "/api/users/verify-otp",
   },
 
   // Status endpoints

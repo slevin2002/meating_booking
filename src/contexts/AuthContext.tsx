@@ -29,6 +29,7 @@ interface AuthContextType {
     email: string;
     password: string;
     teamId?: string;
+    otp?: string;
   }) => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
@@ -116,6 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     email: string;
     password: string;
     teamId?: string;
+    otp?: string;
   }) => {
     try {
       // Add default role to userData

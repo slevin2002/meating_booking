@@ -277,6 +277,22 @@ export const authAPI = {
     });
   },
 
+  // Request OTP for registration
+  requestOTP: async (email: string) => {
+    return apiRequest(API_CONFIG.USERS.REQUEST_OTP, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  // Verify OTP and complete registration
+  verifyOTP: async (email: string, otp: string, teamId?: string) => {
+    return apiRequest(API_CONFIG.USERS.VERIFY_OTP, {
+      method: "POST",
+      body: JSON.stringify({ email, otp, teamId }),
+    });
+  },
+
   // Logout user (client-side only)
   logout: () => {
     localStorage.removeItem("token");

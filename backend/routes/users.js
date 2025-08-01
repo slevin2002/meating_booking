@@ -4,6 +4,12 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Team = require("../models/Team");
+const {
+  generateOTP,
+  storeOTP,
+  verifyOTP,
+  sendOTPEmail,
+} = require("../utils/otpService");
 const router = express.Router();
 
 // Validation middleware
@@ -12,6 +18,19 @@ const validateUser = [
   body("password")
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters long"),
+  body("otp")
+    .optional()
+    .isLength({ min: 6, max: 6 })
+    .withMessage("OTP must be 6 digits"),
+];
+
+const validateOTPRequest = [
+  body("email").isEmail().withMessage("Valid email is required"),
+];
+
+const validateOTPVerification = [
+  body("email").isEmail().withMessage("Valid email is required"),
+  body("otp").isLength({ min: 6, max: 6 }).withMessage("OTP must be 6 digits"),
 ];
 
 const validateLogin = [
@@ -63,11 +82,24 @@ router.post("/register", validateUser, async (req, res) => {
       });
     }
 
+    // Allow registration for all users since OTP is optional
+
     // Update existing user with password and other registration data
     existingUser.password = req.body.password;
     if (req.body.teamId) {
       existingUser.teamId = req.body.teamId;
     }
+
+    // If OTP is provided, verify it
+    if (req.body.otp) {
+      const verificationResult = verifyOTP(req.body.email, req.body.otp);
+      if (!verificationResult.valid) {
+        return res.status(400).json({
+          error: verificationResult.message,
+        });
+      }
+    }
+
     await existingUser.save();
     const user = existingUser;
 
@@ -339,6 +371,115 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     res
       .status(500)
       .json({ error: "Error deleting user", message: error.message });
+  }
+});
+
+// OTP Routes
+
+// Request OTP for registration
+router.post("/request-otp", validateOTPRequest, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email } = req.body;
+
+    // Check if user exists in User model
+    const existingUser = await User.findOne({ email });
+    if (!existingUser) {
+      return res.status(400).json({
+        error:
+          "Email not found in system. Please contact administrator to add your email.",
+      });
+    }
+
+    // Allow OTP requests for all users since OTP is optional
+
+    // Generate and store OTP
+    const otp = generateOTP();
+    storeOTP(email, otp);
+
+    // Send OTP email
+    const emailResult = await sendOTPEmail(email, otp);
+    if (!emailResult.success) {
+      return res.status(500).json({
+        error: "Failed to send OTP email",
+        message: emailResult.error,
+      });
+    }
+
+    res.json({
+      message: "OTP sent successfully",
+      email: email,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error requesting OTP",
+      message: error.message,
+    });
+  }
+});
+
+// Verify OTP and complete registration
+router.post("/verify-otp", validateOTPVerification, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, otp, teamId } = req.body;
+
+    // Verify OTP
+    const verificationResult = verifyOTP(email, otp);
+    if (!verificationResult.valid) {
+      return res.status(400).json({
+        error: verificationResult.message,
+      });
+    }
+
+    // Find user and complete registration
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Update user with teamId if provided
+    if (teamId) {
+      const team = await Team.findById(teamId);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      user.teamId = teamId;
+    }
+
+    // Mark user as registered (no password needed for OTP registration)
+    user.isActive = true;
+    await user.save();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+        role: user.role || "user",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.json({
+      message: "Registration completed successfully",
+      user: user.toJSON(),
+      token,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error verifying OTP",
+      message: error.message,
+    });
   }
 });
 

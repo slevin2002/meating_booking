@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { authAPI } from "../../services/api";
 import ErrorNotification from "./ErrorNotification";
 import "./Auth.css";
 
@@ -9,6 +10,7 @@ const Register: React.FC = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    otp: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,6 +18,8 @@ const Register: React.FC = () => {
     score: 0,
     message: "",
   });
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
   const navigate = useNavigate();
   const { register } = useAuth();
 
@@ -78,7 +82,32 @@ const Register: React.FC = () => {
       return false;
     }
 
+    if (passwordStrength.score < 2) {
+      setError("Password is too weak. Please choose a stronger password.");
+      return false;
+    }
+
     return true;
+  };
+
+  const handleRequestOTP = async () => {
+    if (!formData.email) {
+      setError("Please enter your email first");
+      return;
+    }
+
+    setOtpLoading(true);
+    setError(null);
+
+    try {
+      await authAPI.requestOTP(formData.email);
+      setOtpSent(true);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to send OTP. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,8 +120,11 @@ const Register: React.FC = () => {
 
     try {
       const { confirmPassword, ...registerData } = formData;
-      // Add default role
-      const finalRegisterData = { ...registerData, role: "user" };
+      // Add default role and registration method
+      const finalRegisterData = {
+        ...registerData,
+        role: "user",
+      };
       await register(finalRegisterData);
 
       // Navigate to main app
@@ -128,6 +160,39 @@ const Register: React.FC = () => {
           </div>
 
           <div className="form-group">
+            <label htmlFor="otp">OTP Code (Optional)</label>
+            <div className="otp-input-group">
+              <input
+                type="text"
+                id="otp"
+                name="otp"
+                value={formData.otp}
+                onChange={handleChange}
+                placeholder="Enter 6-digit OTP (optional)"
+                maxLength={6}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="otp-request-btn"
+                onClick={handleRequestOTP}
+                disabled={otpLoading || !formData.email}
+              >
+                {otpLoading
+                  ? "Sending..."
+                  : otpSent
+                  ? "Resend OTP"
+                  : "Send OTP"}
+              </button>
+            </div>
+            {otpSent && (
+              <div className="otp-sent-message">
+                ✅ OTP sent to your email. Check your inbox.
+              </div>
+            )}
+          </div>
+
+          <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
               type="password"
@@ -147,7 +212,6 @@ const Register: React.FC = () => {
               </div>
             )}
           </div>
-
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirm Password</label>
             <input
