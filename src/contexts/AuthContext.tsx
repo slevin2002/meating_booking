@@ -25,6 +25,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithOTP: (email: string, otp: string) => Promise<void>;
   register: (userData: {
     email: string;
     password: string;
@@ -113,6 +114,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithOTP = async (email: string, otp: string) => {
+    try {
+      const response = await authAPI.loginWithOTP({ email, otp });
+
+      // Store authentication data
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
+
+      setToken(response.token);
+      setUser(response.user);
+    } catch (error: any) {
+      throw new Error(error.message || "OTP login failed");
+    }
+  };
+
   const register = async (userData: {
     email: string;
     password: string;
@@ -165,6 +181,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: !!token && !!user,
     loading,
     login,
+    loginWithOTP,
     register,
     logout,
     updateUser,

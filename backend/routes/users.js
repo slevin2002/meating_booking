@@ -180,6 +180,55 @@ router.post("/login", validateLogin, async (req, res) => {
   }
 });
 
+// OTP Login
+router.post("/login-otp", validateOTPVerification, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, otp } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email }).populate("teamId", "name color");
+    if (!user) {
+      return res.status(401).json({ error: "Invalid email or OTP" });
+    }
+
+    // Verify OTP
+    const verificationResult = verifyOTP(email, otp);
+    if (!verificationResult.valid) {
+      return res.status(401).json({
+        error: verificationResult.message,
+      });
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+        role: user.role || "user",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.json({
+      message: "Login successful",
+      user: user.toJSON(),
+      token,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Error logging in", message: error.message });
+  }
+});
+
 // Get current user profile
 router.get("/profile", authMiddleware, async (req, res) => {
   try {

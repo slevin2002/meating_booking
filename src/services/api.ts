@@ -264,6 +264,14 @@ export const authAPI = {
     });
   },
 
+  // Login with OTP
+  loginWithOTP: async (credentials: { email: string; otp: string }) => {
+    return apiRequest(API_CONFIG.USERS.LOGIN_OTP, {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    });
+  },
+
   // Register user
   register: async (userData: {
     email: string;

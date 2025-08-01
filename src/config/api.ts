@@ -38,6 +38,7 @@ export const API_CONFIG = {
     UPDATE: (id: string) => `/api/users/${id}`,
     DELETE: (id: string) => `/api/users/${id}`,
     LOGIN: "/api/users/login",
+    LOGIN_OTP: "/api/users/login-otp",
     REGISTER: "/api/users/register",
     REQUEST_OTP: "/api/users/request-otp",
     VERIFY_OTP: "/api/users/verify-otp",
