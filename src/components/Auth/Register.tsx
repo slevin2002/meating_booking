@@ -6,7 +6,6 @@ import "./Auth.css";
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -114,20 +113,6 @@ const Register: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="name">Full Name</label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Enter your full name"
-              required
-              disabled={loading}
-            />
-          </div>
-
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input

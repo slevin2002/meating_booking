@@ -6,7 +6,7 @@ require("dotenv").config({ path: "./config.env" });
 // Connect to MongoDB
 mongoose
   .connect(
-    process.env.MONGODB_URI || "mongodb://localhost:27017/meeting_booking",
+    process.env.MONGO_URI || "mongodb://localhost:27017/meeting_booking",
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,

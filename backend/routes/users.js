@@ -8,10 +8,6 @@ const router = express.Router();
 
 // Validation middleware
 const validateUser = [
-  body("name")
-    .trim()
-    .isLength({ min: 1, max: 100 })
-    .withMessage("Name is required and must be less than 100 characters"),
   body("email").isEmail().withMessage("Valid email is required"),
   body("password")
     .isLength({ min: 6 })
@@ -69,7 +65,6 @@ router.post("/register", validateUser, async (req, res) => {
 
     // Update existing user with password and other registration data
     existingUser.password = req.body.password;
-    existingUser.name = req.body.name;
     if (req.body.teamId) {
       existingUser.teamId = req.body.teamId;
     }

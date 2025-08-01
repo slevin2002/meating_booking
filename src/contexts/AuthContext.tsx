@@ -9,7 +9,7 @@ import { authAPI } from "../services/api";
 
 interface User {
   _id: string;
-  name: string;
+  name?: string;
   email: string;
   role: "user" | "admin";
   teamId?: string;
@@ -26,7 +26,6 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: {
-    name: string;
     email: string;
     password: string;
     teamId?: string;
@@ -114,7 +113,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const register = async (userData: {
-    name: string;
     email: string;
     password: string;
     teamId?: string;

@@ -1,21 +1,21 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import User from "./models/User.js";
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const User = require("./models/User.js");
 
 dotenv.config({ path: "./config.env" });
 
 const users = [
   { name: "Bhavishya", email: "bhavishya.kerpada@gmail.com" },
-  { name: "Akhila", email: "nikkimaipaje@gmail.com" },
+  { name: "Akhila", email: "akhilanishith84@gmail.com" },
   { name: "Abhilash", email: "abhilashantony04@gmail.com" },
-  { name: "Suhanas", email: "mails.suhana@gmail.com" },
+  { name: "Suhana", email: "mails.suhana@gmail.com" },
   { name: "Slevin Vargese", email: "slevinvarghees@gmail.com" },
   { name: "Chaithra", email: "chaithradhanduguri@gmail.com" },
   { name: "Yamini", email: "yaminikarmay123456@gmail.com" },
   { name: "Afna", email: "afna.emails@gmail.com" },
   { name: "Reena Tiju", email: "reenapa2010@gmail.com" },
   { name: "Ifla", email: "fathimaifla2003@gmail.com" },
-  { name: "Safida", email: "mariyam.safeeda.mardala@gmail.com" },
+  { name: "Safeeda", email: "mariyam.safeeda.mardala@gmail.com" },
   { name: "Shaima", email: "shaimakunthoor2007@gmail.com" },
   { name: "Tiju Thomas", email: "tijukariyil@gmail.com" },
   { name: "Samsheena M", email: "samsheenam2003@gmail.com" },

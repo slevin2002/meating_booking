@@ -266,7 +266,6 @@ export const authAPI = {
 
   // Register user
   register: async (userData: {
-    name: string;
     email: string;
     password: string;
     role: string;

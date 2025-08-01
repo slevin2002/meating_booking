@@ -45,7 +45,7 @@ export interface Team {
 
 export interface User {
   id: string;
-  name: string;
+  name?: string;
   email: string;
   role: "admin" | "user";
   teamId?: string;

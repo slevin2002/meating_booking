@@ -1,7 +1,7 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import Team from "./models/Team.js";
-import User from "./models/User.js";
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const Team = require("./models/Team.js");
+const User = require("./models/User.js");
 
 dotenv.config({ path: "./config.env" });
 
@@ -25,7 +25,7 @@ const teamsData = [
     name: "ShopZone",
     project: "E-commerce Platform",
     lead: "Bhavishya",
-    members: ["Bhavishya", "Akhia", "Abhilash", "Suhana"],
+    members: ["Bhavishya", "Akhila", "Abhilash", "Suhana"],
     status: "active",
     color: "#667eea",
   },
@@ -33,7 +33,14 @@ const teamsData = [
     name: "Delivery App",
     project: "Food Delivery Application",
     lead: "Slevin Vargese",
-    members: ["Slevin Vargese", "Tafseeda", "Yamini", "Afna", "Reena", "Ifla"],
+    members: [
+      "Slevin Vargese",
+      "Thafseeda",
+      "Yamini",
+      "Afna",
+      "Reena Tiju",
+      "Ifla",
+    ],
     status: "active",
     color: "#764ba2",
   },
@@ -126,7 +133,13 @@ const teamsData = [
     name: "ChatApp",
     project: "Real-time Chat Application",
     lead: "Samsheena M",
-    members: ["Samsheena M", "Tiju", "Namo Swasthik", "Shaima", "Mobeena"],
+    members: [
+      "Samsheena M",
+      "Tiju Thomas",
+      "Namo Swasthik",
+      "Shaima",
+      "Mubeena",
+    ],
     status: "active",
     color: "#f093fb",
   },
