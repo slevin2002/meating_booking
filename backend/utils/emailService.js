@@ -87,15 +87,23 @@ const generateMeetingEmailHTML = (meeting, creator, attendees) => {
           color: #6c757d;
           font-size: 14px;
         }
-        .btn {
-          display: inline-block;
-          padding: 10px 20px;
-          background: #667eea;
-          color: white;
-          text-decoration: none;
-          border-radius: 5px;
-          margin: 10px 5px;
-        }
+                 .btn {
+           display: inline-block;
+           padding: 10px 20px;
+           background: #667eea;
+           color: white !important;
+           text-decoration: none;
+           border-radius: 5px;
+           margin: 10px 5px;
+           font-weight: bold;
+         }
+         .btn span {
+           color: white !important;
+         }
+         .btn-text {
+           color: white !important;
+           font-weight: bold;
+         }
         .btn:hover {
           background: #5a6fd8;
         }
@@ -150,13 +158,15 @@ const generateMeetingEmailHTML = (meeting, creator, attendees) => {
         </div>
       </div>
       
-      <div style="text-align: center; margin: 20px 0;">
-        <a href="${
-          process.env.FRONTEND_URL || "http://localhost:3000"
-        }/meeting/${meeting._id}" class="btn">
-          📋 View Meeting Details
-        </a>
-      </div>
+             <div style="text-align: center; margin: 20px 0;">
+         <a href="${
+           process.env.FRONTEND_URL || "http://localhost:3000"
+         }/meeting/${
+    meeting._id
+  }" class="btn" style="color: white !important; text-decoration: none;">
+           <span class="btn-text" style="color: white !important; font-weight: bold;">📋 View Meeting Details</span>
+         </a>
+       </div>
       
       <div class="footer">
         <p>This is an automated notification from the Meeting Booking System.</p>
