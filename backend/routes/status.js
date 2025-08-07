@@ -394,12 +394,11 @@ router.get("/all-rooms", async (req, res) => {
 
     // Get all unique rooms from meetings
     const allRooms = [
-      "lunch hall (Capacity: 15)",
       "meeting room (Capacity: 10)",
       "Balcony (Capacity: 8)",
       "sit out (Capacity: 6)",
-      "conference room",
-      "boardroom",
+      "lunch hall (Capacity: 15)",
+      "main hall (General Meetings only) (Capacity: 40)",
     ];
 
     const roomStatuses = [];

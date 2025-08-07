@@ -48,14 +48,28 @@ const verifyOTP = (email, otp) => {
 };
 
 // Send OTP email
-const sendOTPEmail = async (email, otp) => {
+const sendOTPEmail = async (email, otp, purpose = "registration") => {
   try {
     const transporter = createTransporter();
+
+    const isGeneralMeeting = purpose === "general-meeting";
+    const subject = isGeneralMeeting
+      ? "🔐 OTP for General Meeting Booking Verification"
+      : "🔐 Your OTP for Registration";
+    const title = isGeneralMeeting
+      ? "General Meeting Booking Verification"
+      : "OTP Verification";
+    const subtitle = isGeneralMeeting
+      ? "Verify the General Meeting booking request"
+      : "Complete your registration with the code below";
+    const description = isGeneralMeeting
+      ? "Enter this 6-digit code to verify the General Meeting booking request"
+      : "Enter this 6-digit code to complete your registration";
 
     const mailOptions = {
       from: `"Meeting Booking System" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "🔐 Your OTP for Registration",
+      subject: subject,
       html: `
         <!DOCTYPE html>
         <html>
@@ -113,18 +127,47 @@ const sendOTPEmail = async (email, otp) => {
               margin: 15px 0;
               border-left: 4px solid #ffc107;
             }
+            ${
+              isGeneralMeeting
+                ? `
+            .general-meeting-info {
+              background: #e3f2fd;
+              color: #1976d2;
+              padding: 15px;
+              border-radius: 8px;
+              margin: 15px 0;
+              border-left: 4px solid #2196f3;
+            }
+            `
+                : ""
+            }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1>🔐 OTP Verification</h1>
-            <p>Complete your registration with the code below</p>
+            <h1>🔐 ${title}</h1>
+            <p>${subtitle}</p>
           </div>
           
           <div class="otp-container">
             <h2>Your Verification Code</h2>
             <div class="otp-code">${otp}</div>
-            <p>Enter this 6-digit code to complete your registration</p>
+            <p>${description}</p>
+            
+            ${
+              isGeneralMeeting
+                ? `
+            <div class="general-meeting-info">
+              <strong>📋 General Meeting Details:</strong>
+              <ul style="text-align: left; margin: 10px 0;">
+                <li>This OTP is required to book a General Meeting</li>
+                <li>Only the team lead can verify General Meeting bookings</li>
+                <li>General Meetings are company-wide events</li>
+              </ul>
+            </div>
+            `
+                : ""
+            }
             
             <div class="warning">
               <strong>⚠️ Important:</strong>

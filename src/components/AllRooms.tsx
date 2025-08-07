@@ -75,12 +75,11 @@ const AllRooms: React.FC<AllRoomsProps> = ({ teams }) => {
 
         // Set default statuses as fallback
         const fallbackStatuses: RoomStatus[] = [
-          "lunch hall (Capacity: 15)",
           "meeting room (Capacity: 10)",
           "Balcony (Capacity: 8)",
           "sit out (Capacity: 6)",
-          "conference room",
-          "boardroom",
+          "lunch hall (Capacity: 15)",
+          "main hall (General Meetings only) (Capacity: 40)",
         ].map((room) => ({
           room,
           status: "free",

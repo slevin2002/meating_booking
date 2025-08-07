@@ -8,13 +8,11 @@ const users = [
   { name: "Bhavishya", email: "bhavishya.kerpada@gmail.com" },
   { name: "Akhila", email: "akhilanishith84@gmail.com" },
   { name: "Abhilash", email: "abhilashantony04@gmail.com" },
-  { name: "Suhana", email: "mails.suhana@gmail.com" },
   { name: "Slevin Vargese", email: "slevinvarghees@gmail.com" },
   { name: "Chaithra", email: "chaithradhanduguri@gmail.com" },
   { name: "Yamini", email: "yaminikarmay123456@gmail.com" },
-  { name: "Afna", email: "afna.emails@gmail.com" },
   { name: "Reena Tiju", email: "reenapa2010@gmail.com" },
-  { name: "Ifla", email: "fathimaifla2003@gmail.com" },
+  { name: "Ifla", email: "fathimahifla2003@gmail.com" },
   { name: "Safeeda", email: "mariyam.safeeda.mardala@gmail.com" },
   { name: "Shaima", email: "shaimakunthoor2007@gmail.com" },
   { name: "Tiju Thomas", email: "tijukariyil@gmail.com" },
@@ -29,7 +27,6 @@ const users = [
   { name: "Nusaiba", email: "fathimathnusaiba2004@gmail.com" },
   { name: "Namo Swasthik", email: "namoswasthik.padejaru@gmail.com" },
   { name: "Nishana", email: "nishananishanzz.gm@gmail.com" },
-  { name: "Nazera", email: "nejjunezira@gmail.com" },
   { name: "Sinchan", email: "sinchankadaba@gmail.com" },
   { name: "Mubeena", email: "kmubeena895@gmail.com" },
   { name: "Sahil", email: "shahilahammedshahilahammed@gmail.com" },
@@ -38,6 +35,7 @@ const users = [
   { name: "Sowjanya", email: "sowjanyapr5@gmail.com" },
   { name: "Ashwin", email: "ashwin.mk.2019@gmail.com" },
   { name: "Mumthaz", email: "mumthazashiq91@gmail.com" },
+  { name: "Thomas Abraham", email: "thomas.abraham66.india@gmail.com" },
 ];
 
 async function main() {

@@ -112,6 +112,17 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  // OTP verification states for General Meeting
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [teamLeadInfo, setTeamLeadInfo] = useState<{
+    name: string;
+    email: string;
+  } | null>(null);
+
   // Fetch all employees when booking form is opened
   useEffect(() => {
     if (showBookingForm) {
@@ -540,6 +551,323 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
 
   const { isAuthenticated } = useAuth();
 
+  // Check if selected team is General Meeting
+  const isGeneralMeeting =
+    selectedTeam === "general" ||
+    teams.find((t) => t._id === selectedTeam)?.name === "General Meeting";
+
+  // Send OTP for General Meeting verification
+  const sendGeneralMeetingOTP = async () => {
+    if (!selectedTeam) return;
+
+    setOtpLoading(true);
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/meetings/send-general-meeting-otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ teamId: selectedTeam }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setOtpSent(true);
+        setTeamLeadInfo(data.teamLead);
+        setErrorMessage("");
+      } else {
+        setErrorMessage(data.error || "Failed to send OTP");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      setErrorMessage("Failed to send OTP. Please try again.");
+      setShowErrorModal(true);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Verify OTP for General Meeting
+  const verifyGeneralMeetingOTP = async () => {
+    if (!selectedTeam || !otpValue) return;
+
+    setOtpLoading(true);
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/meetings/verify-general-meeting-otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            teamId: selectedTeam,
+            otp: otpValue,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setOtpVerified(true);
+        setShowOTPModal(false);
+        setErrorMessage("");
+        // Proceed with booking after OTP verification
+        await proceedWithBooking();
+      } else {
+        setErrorMessage(data.error || "Invalid OTP. Please try again.");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      setErrorMessage("Failed to verify OTP. Please try again.");
+      setShowErrorModal(true);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Proceed with booking after OTP verification
+  const proceedWithBooking = async () => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setErrorMessage(
+        "You must be logged in to book a meeting. Please login first."
+      );
+      setShowErrorModal(true);
+      return;
+    }
+
+    if (
+      selectedStartTime &&
+      selectedEndTime &&
+      selectedTeam &&
+      meetingTitle &&
+      selectedRoom
+    ) {
+      // Check if meeting is at least 2 hours in advance
+      const now = new Date();
+      const selectedDateTime = new Date(selectedDate);
+      const [advanceStartHour, advanceStartMinute] = selectedStartTime
+        .split(":")
+        .map(Number);
+      selectedDateTime.setHours(advanceStartHour, advanceStartMinute, 0, 0);
+
+      const timeDifference = selectedDateTime.getTime() - now.getTime();
+      const hoursDifference = timeDifference / (1000 * 60 * 60);
+
+      if (hoursDifference < 2) {
+        setErrorMessage("Meetings must be booked at least 2 hours in advance.");
+        setShowErrorModal(true);
+        return;
+      }
+
+      // Validate end time is after start time
+      const start = selectedStartTime;
+      const end = selectedEndTime;
+      if (end <= start) {
+        setErrorMessage("End time must be after start time.");
+        setShowErrorModal(true);
+        return;
+      }
+
+      // Calculate duration in minutes
+      const [startHour, startMinute] = start.split(":").map(Number);
+      const [endHour, endMinute] = end.split(":").map(Number);
+      const startTotalMinutes = startHour * 60 + startMinute;
+      const endTotalMinutes = endHour * 60 + endMinute;
+      const durationMinutes = endTotalMinutes - startTotalMinutes;
+
+      if (durationMinutes < 15) {
+        setErrorMessage("Meeting duration must be at least 15 minutes.");
+        setShowErrorModal(true);
+        return;
+      }
+
+      if (durationMinutes > 480) {
+        setErrorMessage(
+          "Meeting duration cannot exceed 8 hours (480 minutes)."
+        );
+        setShowErrorModal(true);
+        return;
+      }
+
+      // Check room-team restrictions
+      const isMainHall = selectedRoom.toLowerCase().includes("main hall");
+      const isGeneralMeeting =
+        selectedTeam === "general" ||
+        teams.find((t) => t._id === selectedTeam)?.name === "General Meeting";
+
+      if (isMainHall && !isGeneralMeeting) {
+        setErrorMessage(
+          "Main Hall is reserved for General Meetings only. Please select a different room or team."
+        );
+        setShowErrorModal(true);
+        return;
+      }
+
+      if (!isMainHall && isGeneralMeeting) {
+        setErrorMessage(
+          "General Meetings can only be held in the Main Hall. Please select the Main Hall."
+        );
+        setShowErrorModal(true);
+        return;
+      }
+
+      // Check if selected room is busy
+      if (selectedRoom) {
+        const validationYear = selectedDate.getFullYear();
+        const validationMonth = String(selectedDate.getMonth() + 1).padStart(
+          2,
+          "0"
+        );
+        const validationDay = String(selectedDate.getDate()).padStart(2, "0");
+        const validationFormattedDate = `${validationYear}-${validationMonth}-${validationDay}`;
+
+        const roomUrl = `${
+          API_CONFIG.BASE_URL
+        }/api/meetings/check-room-availability?room=${encodeURIComponent(
+          selectedRoom
+        )}&date=${validationFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+
+        console.log(
+          `Checking final room availability for ${selectedRoom}:`,
+          roomUrl
+        );
+
+        const roomResponse = await fetch(roomUrl);
+        if (roomResponse.ok) {
+          const roomData = await roomResponse.json();
+          console.log(
+            `Final room validation response for ${selectedRoom}:`,
+            roomData
+          );
+          if (roomData.status === "busy") {
+            setErrorMessage(
+              `Cannot book meeting. The selected room "${selectedRoom}" is busy during the selected time.`
+            );
+            setShowErrorModal(true);
+            return;
+          }
+        } else {
+          console.error(
+            `Error in final room validation for ${selectedRoom}:`,
+            roomResponse.status,
+            roomResponse.statusText
+          );
+        }
+      }
+
+      // Final validation: check if any selected attendee is busy
+      const busyAttendees: string[] = [];
+      console.log("=== FINAL VALIDATION ===");
+      const finalYear = selectedDate.getFullYear();
+      const finalMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
+      const finalDay = String(selectedDate.getDate()).padStart(2, "0");
+      const finalFormattedDate = `${finalYear}-${finalMonth}-${finalDay}`;
+      console.log("Selected date:", finalFormattedDate);
+      console.log(
+        "Selected time range:",
+        selectedStartTime,
+        "-",
+        selectedEndTime
+      );
+      console.log("Selected attendees:", selectedAttendees);
+      console.log("Selected room:", selectedRoom);
+
+      for (const member of selectedAttendees) {
+        // Format date consistently to avoid timezone issues
+        const validationYear = selectedDate.getFullYear();
+        const validationMonth = String(selectedDate.getMonth() + 1).padStart(
+          2,
+          "0"
+        );
+        const validationDay = String(selectedDate.getDate()).padStart(2, "0");
+        const validationFormattedDate = `${validationYear}-${validationMonth}-${validationDay}`;
+
+        const url = `${
+          API_CONFIG.BASE_URL
+        }/api/meetings/check-member-availability?member=${encodeURIComponent(
+          member
+        )}&date=${validationFormattedDate}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`;
+
+        console.log(`Checking final availability for ${member}:`, url);
+
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`Final validation response for ${member}:`, data);
+          if (data.status === "busy") {
+            busyAttendees.push(member);
+            console.log(`${member} is busy during final validation`);
+          }
+        } else {
+          console.error(
+            `Error in final validation for ${member}:`,
+            response.status,
+            response.statusText
+          );
+        }
+      }
+
+      // Note: We no longer block or ask for confirmation for busy attendees
+      // The backend will handle this gracefully and show warnings
+      if (busyAttendees.length > 0) {
+        console.log("Busy attendees detected:", busyAttendees);
+        console.log("Proceeding with booking - backend will handle warnings");
+      }
+
+      // Note: We no longer block booking for member conflicts
+      // The backend will handle busy attendees gracefully
+      // await checkMemberConflicts();
+
+      console.log("Selected attendees before booking:", selectedAttendees);
+
+      // Format date in local timezone to avoid timezone conversion issues
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+      const day = String(selectedDate.getDate()).padStart(2, "0");
+      const localDateString = `${year}-${month}-${day}`;
+
+      console.log(`Selected date: ${selectedDate.toDateString()}`);
+      console.log(`Formatted date: ${localDateString}`);
+
+      const booking = {
+        date: localDateString,
+        startTime: selectedStartTime,
+        endTime: selectedEndTime,
+        teamId: selectedTeam,
+        title: meetingTitle,
+        room: selectedRoom,
+        attendees: selectedAttendees,
+      };
+
+      console.log("Booking object being sent:", booking);
+      onBookingSubmit?.(booking);
+      setShowBookingForm(false);
+      setSelectedStartTime("");
+      setSelectedEndTime("");
+      setSelectedStartSlot("");
+      setSelectedEndSlot("");
+      setSelectedTeam("");
+      setMeetingTitle("");
+      setSelectedRoom("");
+      setSelectedAttendees([]);
+      setMemberConflicts([]);
+      setDropdownAddedEmployees([]);
+      setOtpVerified(false);
+      setOtpSent(false);
+      setOtpValue("");
+      setTeamLeadInfo(null);
+    }
+  };
+
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -549,6 +877,12 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
         "You must be logged in to book a meeting. Please login first."
       );
       setShowErrorModal(true);
+      return;
+    }
+
+    // Check if this is a General Meeting and OTP verification is needed
+    if (isGeneralMeeting && !otpVerified) {
+      setShowOTPModal(true);
       return;
     }
 
@@ -656,6 +990,28 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
             response.statusText
           );
         }
+      }
+
+      // Check room-team restrictions
+      const isMainHall = selectedRoom.toLowerCase().includes("main hall");
+      const isGeneralMeeting =
+        selectedTeam === "general" ||
+        teams.find((t) => t._id === selectedTeam)?.name === "General Meeting";
+
+      if (isMainHall && !isGeneralMeeting) {
+        setErrorMessage(
+          "Main Hall is reserved for General Meetings only. Please select a different room or team."
+        );
+        setShowErrorModal(true);
+        return;
+      }
+
+      if (!isMainHall && isGeneralMeeting) {
+        setErrorMessage(
+          "General Meetings can only be held in the Main Hall. Please select the Main Hall."
+        );
+        setShowErrorModal(true);
+        return;
       }
 
       // Check if selected room is busy
@@ -972,13 +1328,55 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
             </div>
 
             <div className="calendar-days">
-              <div className="day-header">Sun</div>
-              <div className="day-header">Mon</div>
-              <div className="day-header">Tue</div>
-              <div className="day-header">Wed</div>
-              <div className="day-header">Thu</div>
-              <div className="day-header">Fri</div>
-              <div className="day-header">Sat</div>
+              <div
+                className={`day-header ${
+                  new Date().getDay() === 0 ? "today" : ""
+                }`}
+              >
+                Sun
+              </div>
+              <div
+                className={`day-header ${
+                  new Date().getDay() === 1 ? "today" : ""
+                }`}
+              >
+                Mon
+              </div>
+              <div
+                className={`day-header ${
+                  new Date().getDay() === 2 ? "today" : ""
+                }`}
+              >
+                Tue
+              </div>
+              <div
+                className={`day-header ${
+                  new Date().getDay() === 3 ? "today" : ""
+                }`}
+              >
+                Wed
+              </div>
+              <div
+                className={`day-header ${
+                  new Date().getDay() === 4 ? "today" : ""
+                }`}
+              >
+                Thu
+              </div>
+              <div
+                className={`day-header ${
+                  new Date().getDay() === 5 ? "today" : ""
+                }`}
+              >
+                Fri
+              </div>
+              <div
+                className={`day-header ${
+                  new Date().getDay() === 6 ? "today" : ""
+                }`}
+              >
+                Sat
+              </div>
 
               {days.map((day, index) => {
                 const isPast = day && day < todayDate;
@@ -1166,6 +1564,26 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
 
                 <div className="form-group">
                   <label>Select Room:</label>
+                  {selectedTeam && (
+                    <div
+                      style={{
+                        background: "#f0f9ff",
+                        border: "1px solid #bae6fd",
+                        borderRadius: "6px",
+                        padding: "8px 12px",
+                        marginBottom: "15px",
+                        fontSize: "12px",
+                        color: "#0369a1",
+                      }}
+                    >
+                      ℹ️ <strong>Room Restrictions:</strong>{" "}
+                      {selectedTeam === "general" ||
+                      teams.find((t) => t._id === selectedTeam)?.name ===
+                        "General Meeting"
+                        ? "General Meetings can only be held in the Main Hall"
+                        : "Other teams cannot book the Main Hall (General Meetings only)"}
+                    </div>
+                  )}
                   {checkingRoomAvailability && (
                     <div
                       style={{
@@ -1198,14 +1616,31 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                       const firstConflict =
                         roomConflicts.length > 0 ? roomConflicts[0] : null;
 
+                      // Check if this is the main hall
+                      const isMainHall = room
+                        .toLowerCase()
+                        .includes("main hall");
+
+                      // Check if General Meeting team is selected
+                      const isGeneralMeeting =
+                        selectedTeam === "general" ||
+                        teams.find((t) => t._id === selectedTeam)?.name ===
+                          "General Meeting";
+
+                      // Determine if room should be disabled
+                      const isRoomDisabled =
+                        isBusy ||
+                        (isMainHall && !isGeneralMeeting) ||
+                        (!isMainHall && isGeneralMeeting);
+
                       return (
                         <option
                           key={room}
                           value={room}
-                          disabled={isBusy}
+                          disabled={isRoomDisabled}
                           style={{
-                            color: isBusy ? "#dc2626" : "inherit",
-                            fontStyle: isBusy ? "italic" : "normal",
+                            color: isRoomDisabled ? "#dc2626" : "inherit",
+                            fontStyle: isRoomDisabled ? "italic" : "normal",
                           }}
                         >
                           {room}{" "}
@@ -1215,6 +1650,10 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                                   ? formatDateTime(firstConflict.endTime)
                                   : "unknown"
                               })`
+                            : isMainHall && !isGeneralMeeting
+                            ? "(General Meetings only)"
+                            : !isMainHall && isGeneralMeeting
+                            ? "(Not available for General Meetings)"
                             : ""}
                         </option>
                       );
@@ -1878,6 +2317,214 @@ const Calendar: React.FC<CalendarProps> = ({ onBookingSubmit, teams = [] }) => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* OTP Verification Modal for General Meeting */}
+      {showOTPModal && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            className="modal-dialog"
+            style={{
+              background: "white",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "500px",
+              width: "90%",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+              position: "relative",
+            }}
+          >
+            <button
+              className="modal-close"
+              onClick={() => setShowOTPModal(false)}
+              style={{
+                position: "absolute",
+                top: "12px",
+                right: "16px",
+                background: "none",
+                border: "none",
+                fontSize: "24px",
+                cursor: "pointer",
+                color: "#666",
+                width: "32px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f0f0f0";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              ×
+            </button>
+
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <div
+                style={{
+                  fontSize: "48px",
+                  marginBottom: "16px",
+                  color: "#667eea",
+                }}
+              >
+                🔐
+              </div>
+              <h3
+                style={{
+                  margin: "0 0 12px 0",
+                  color: "#333",
+                  fontSize: "20px",
+                  fontWeight: "600",
+                }}
+              >
+                General Meeting Verification Required
+              </h3>
+              <p
+                style={{
+                  margin: "0",
+                  color: "#666",
+                  fontSize: "14px",
+                  lineHeight: "1.5",
+                }}
+              >
+                An OTP will be sent to the team lead for verification.
+              </p>
+            </div>
+
+            {!otpSent ? (
+              <div style={{ textAlign: "center" }}>
+                <button
+                  onClick={sendGeneralMeetingOTP}
+                  disabled={otpLoading}
+                  style={{
+                    background: "#667eea",
+                    color: "white",
+                    border: "none",
+                    padding: "12px 24px",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "opacity 0.3s ease",
+                    opacity: otpLoading ? 0.6 : 1,
+                  }}
+                >
+                  {otpLoading ? "Sending..." : "Send OTP to Team Lead"}
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    background: "#e3f2fd",
+                    border: "1px solid #bbdefb",
+                    borderRadius: "8px",
+                    padding: "12px",
+                    marginBottom: "20px",
+                    fontSize: "14px",
+                    color: "#1976d2",
+                  }}
+                >
+                  ✅ OTP sent to {teamLeadInfo?.name} ({teamLeadInfo?.email})
+                </div>
+
+                <div style={{ marginBottom: "20px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "600",
+                      color: "#333",
+                    }}
+                  >
+                    Enter OTP:
+                  </label>
+                  <input
+                    type="text"
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      border: "2px solid #e0e0e0",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      textAlign: "center",
+                      letterSpacing: "4px",
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    gap: "12px",
+                  }}
+                >
+                  <button
+                    onClick={verifyGeneralMeetingOTP}
+                    disabled={otpLoading || !otpValue}
+                    style={{
+                      background: "#667eea",
+                      color: "white",
+                      border: "none",
+                      padding: "12px 24px",
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "opacity 0.3s ease",
+                      opacity: otpLoading || !otpValue ? 0.6 : 1,
+                    }}
+                  >
+                    {otpLoading ? "Verifying..." : "Verify OTP"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setOtpSent(false);
+                      setOtpValue("");
+                    }}
+                    style={{
+                      background: "#f5f5f5",
+                      color: "#666",
+                      border: "none",
+                      padding: "12px 24px",
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "opacity 0.3s ease",
+                    }}
+                  >
+                    Resend OTP
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

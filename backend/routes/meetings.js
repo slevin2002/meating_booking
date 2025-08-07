@@ -8,6 +8,12 @@ const {
   sendMeetingInvitations,
   sendMeetingCancellationEmail,
 } = require("../utils/emailService");
+const {
+  generateOTP,
+  storeOTP,
+  verifyOTP,
+  sendOTPEmail,
+} = require("../utils/otpService");
 const router = express.Router();
 
 // Authentication middleware
@@ -596,6 +602,115 @@ router.get("/member-meetings", async (req, res) => {
     console.error(error);
     res.status(500).json({
       error: "Error fetching member meetings",
+      message: error.message,
+    });
+  }
+});
+
+// Send OTP for General Meeting verification
+router.post("/send-general-meeting-otp", authMiddleware, async (req, res) => {
+  try {
+    const { teamId } = req.body;
+
+    // Check if this is a General Meeting team
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+
+    const isGeneralMeeting = team.name === "General Meeting";
+    if (!isGeneralMeeting) {
+      return res.status(400).json({
+        error: "OTP verification is only required for General Meetings",
+      });
+    }
+
+    // Get the team lead's email
+    const teamLead = await User.findOne({ name: team.lead });
+    if (!teamLead) {
+      return res.status(404).json({
+        error: "Team lead not found. Please contact administrator.",
+      });
+    }
+
+    // Generate and send OTP
+    const otp = generateOTP();
+    storeOTP(teamLead.email, otp);
+
+    const emailResult = await sendOTPEmail(
+      teamLead.email,
+      otp,
+      "general-meeting"
+    );
+    if (!emailResult.success) {
+      return res.status(500).json({
+        error: "Failed to send OTP email",
+        details: emailResult.error,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `OTP sent to ${teamLead.name} (${teamLead.email})`,
+      teamLead: {
+        name: teamLead.name,
+        email: teamLead.email,
+      },
+    });
+  } catch (error) {
+    console.error("Error sending General Meeting OTP:", error);
+    res.status(500).json({
+      error: "Error sending OTP",
+      message: error.message,
+    });
+  }
+});
+
+// Verify OTP for General Meeting
+router.post("/verify-general-meeting-otp", authMiddleware, async (req, res) => {
+  try {
+    const { teamId, otp } = req.body;
+
+    // Check if this is a General Meeting team
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+
+    const isGeneralMeeting = team.name === "General Meeting";
+    if (!isGeneralMeeting) {
+      return res.status(400).json({
+        error: "OTP verification is only required for General Meetings",
+      });
+    }
+
+    // Get the team lead's email
+    const teamLead = await User.findOne({ name: team.lead });
+    if (!teamLead) {
+      return res.status(404).json({
+        error: "Team lead not found. Please contact administrator.",
+      });
+    }
+
+    // Verify OTP
+    const verificationResult = verifyOTP(teamLead.email, otp);
+    if (!verificationResult.valid) {
+      return res.status(400).json({
+        error: "OTP verification failed",
+        message: verificationResult.message,
+      });
+    }
+
+    res.json({
+      success: true,
+      message:
+        "OTP verified successfully. You can now book the General Meeting.",
+      verified: true,
+    });
+  } catch (error) {
+    console.error("Error verifying General Meeting OTP:", error);
+    res.status(500).json({
+      error: "Error verifying OTP",
       message: error.message,
     });
   }

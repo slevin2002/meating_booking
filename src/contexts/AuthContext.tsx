@@ -60,17 +60,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           // Verify token with backend
           try {
-            const response = await fetch(
-              `${
-                process.env.REACT_APP_API_URL || "http://localhost:4444"
-              }/api/users/profile`,
-              {
-                headers: {
-                  Authorization: `Bearer ${storedToken}`,
-                  "Content-Type": "application/json",
-                },
-              }
-            );
+            const apiUrl = `${
+              process.env.REACT_APP_API_URL || "https://meetings.testatozas.in"
+            }/api/users/profile`;
+
+            const response = await fetch(apiUrl, {
+              headers: {
+                Authorization: `Bearer ${storedToken}`,
+                "Content-Type": "application/json",
+              },
+            });
 
             if (response.ok) {
               // Token is valid

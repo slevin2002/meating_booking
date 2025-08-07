@@ -1,9 +1,8 @@
 // API Configuration
 export const API_CONFIG = {
   // Base URL - Change this to switch between development and production
-  // BASE_URL:
-  //   process.env.REACT_APP_API_URL || "https://meeting.booking.testatozas.in",
   BASE_URL: process.env.REACT_APP_API_URL || "http://localhost:4444",
+  // BASE_URL: process.env.REACT_APP_API_URL || "https://meetings.testatozas.in",
 
   // Meeting endpoints
   MEETINGS: {
@@ -57,7 +56,7 @@ export const API_CONFIG = {
 // Production API configuration
 export const API_BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://meeting.booking.testatozas.in/api" // Nginx handles port 4444 proxying
+    ? "https://meetings.testatozas.in/api" // Nginx handles port 4444 proxying
     : "http://localhost:4444/api";
 
 // Helper function to build full URL
