@@ -13,6 +13,7 @@ import TeamOverview from "./components/TeamOverview";
 import AllEmployeesAvailability from "./components/AllEmployeesAvailability";
 import AllEmployees from "./components/AllEmployees";
 import AllRooms from "./components/AllRooms";
+import AdminDashboard from "./components/AdminDashboard";
 import CancelledMeetings from "./components/CancelledMeetings";
 import PastMeetings from "./components/PastMeetings";
 import IntroSlider from "./IntroSlider";
@@ -36,7 +37,13 @@ function AppContent() {
   );
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "calendar" | "meetings" | "teams" | "availability" | "employees" | "rooms"
+    | "calendar"
+    | "meetings"
+    | "teams"
+    | "availability"
+    | "employees"
+    | "rooms"
+    | "admin"
   >("calendar");
   const [activeTeamTab, setActiveTeamTab] = useState<
     "overview" | "management" | "dashboard"
@@ -407,6 +414,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <AllRooms teams={teams} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard teams={teams} />
               </ProtectedRoute>
             }
           />

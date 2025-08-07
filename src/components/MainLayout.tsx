@@ -15,6 +15,7 @@ const tabs = [
   },
   { id: "employees", label: "Employees", icon: "🧑‍💼", path: "/employees" },
   { id: "rooms", label: "Rooms", icon: "🏢", path: "/rooms" },
+  { id: "admin", label: "Admin", icon: "🔧", path: "/admin" },
 ];
 
 const MainLayout: React.FC = () => {

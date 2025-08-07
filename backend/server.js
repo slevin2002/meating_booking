@@ -39,6 +39,7 @@ app.use("/api/teams", require("./routes/teams"));
 app.use("/api/meetings", require("./routes/meetings"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/status", require("./routes/status"));
+app.use("/api/admin", require("./routes/admin"));
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
