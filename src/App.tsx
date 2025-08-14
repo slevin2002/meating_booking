@@ -18,6 +18,8 @@ import CancelledMeetings from "./components/CancelledMeetings";
 import PastMeetings from "./components/PastMeetings";
 import IntroSlider from "./IntroSlider";
 import MeetingDetails from "./components/MeetingDetails";
+import ZoomMeeting from "./components/ZoomMeeting";
+import VideoConference from "./components/VideoConference";
 import Login from "./components/Auth/Login";
 import Register from "./components/Auth/Register";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
@@ -374,6 +376,30 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <CancelledMeetings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="zoom"
+            element={
+              <ProtectedRoute>
+                <ZoomMeeting />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="video-conference"
+            element={
+              <ProtectedRoute>
+                <VideoConference />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="video-conference/:roomId"
+            element={
+              <ProtectedRoute>
+                <VideoConference />
               </ProtectedRoute>
             }
           />

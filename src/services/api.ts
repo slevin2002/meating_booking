@@ -383,6 +383,83 @@ export const userAPI = {
   },
 };
 
+// Zoom API functions
+export const zoomAPI = {
+  // Get all Zoom meetings
+  getAll: async (params?: {
+    teamId?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const endpoint = buildApiUrlWithParams(
+      API_CONFIG.ZOOM.GET_ALL,
+      params || {}
+    );
+    return apiRequest(endpoint);
+  },
+
+  // Get Zoom meeting by ID
+  getById: async (id: string) => {
+    return apiRequest(API_CONFIG.ZOOM.GET_BY_ID(id));
+  },
+
+  // Create new Zoom meeting
+  create: async (meetingData: {
+    title: string;
+    description: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+    teamId: string;
+    attendees: string[];
+  }) => {
+    return apiRequest(API_CONFIG.ZOOM.CREATE, {
+      method: "POST",
+      body: JSON.stringify(meetingData),
+    });
+  },
+
+  // Update Zoom meeting
+  update: async (
+    id: string,
+    meetingData: Partial<{
+      title: string;
+      description: string;
+      startTime: string;
+      endTime: string;
+      duration: number;
+      attendees: string[];
+    }>
+  ) => {
+    return apiRequest(API_CONFIG.ZOOM.UPDATE(id), {
+      method: "PUT",
+      body: JSON.stringify(meetingData),
+    });
+  },
+
+  // Delete Zoom meeting
+  delete: async (id: string) => {
+    return apiRequest(API_CONFIG.ZOOM.DELETE(id), {
+      method: "DELETE",
+    });
+  },
+
+  // Join Zoom meeting
+  join: async (id: string) => {
+    return apiRequest(API_CONFIG.ZOOM.JOIN(id), {
+      method: "POST",
+    });
+  },
+
+  // Get Zoom meeting statistics
+  getStats: async () => {
+    return apiRequest(API_CONFIG.ZOOM.STATS_OVERVIEW);
+  },
+};
+
 // Health check
 export const healthCheck = async () => {
   return apiRequest(API_CONFIG.HEALTH);
@@ -393,5 +470,6 @@ export default {
   teamAPI,
   userAPI,
   authAPI,
+  zoomAPI,
   healthCheck,
 };

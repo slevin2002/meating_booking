@@ -1,7 +1,7 @@
 // API Configuration
 export const API_CONFIG = {
   // Base URL - Change this to switch between development and production
-  BASE_URL: process.env.REACT_APP_API_URL || "http://localhost:4444",
+  BASE_URL: process.env.REACT_APP_API_URL || "http://192.168.2.136:4444",
   // BASE_URL: process.env.REACT_APP_API_URL || "https://meetings.testatozas.in",
 
   // Meeting endpoints
@@ -18,6 +18,17 @@ export const API_CONFIG = {
     EMPLOYEE_CURRENT_MEETINGS: "/api/meetings/employee-current-meetings",
     MEMBER_MEETINGS: "/api/meetings/member-meetings",
     STATS_OVERVIEW: "/api/meetings/stats/overview",
+  },
+
+  // Zoom meeting endpoints
+  ZOOM: {
+    GET_ALL: "/api/zoom",
+    GET_BY_ID: (id: string) => `/api/zoom/${id}`,
+    CREATE: "/api/zoom/create",
+    UPDATE: (id: string) => `/api/zoom/${id}`,
+    DELETE: (id: string) => `/api/zoom/${id}`,
+    JOIN: (id: string) => `/api/zoom/${id}/join`,
+    STATS_OVERVIEW: "/api/zoom/stats/overview",
   },
 
   // Team endpoints
@@ -57,7 +68,7 @@ export const API_CONFIG = {
 export const API_BASE_URL =
   process.env.NODE_ENV === "production"
     ? "https://meetings.testatozas.in/api" // Nginx handles port 4444 proxying
-    : "http://localhost:4444/api";
+    : "http://192.168.2.136:4444/api";
 
 // Helper function to build full URL
 export const buildApiUrl = (endpoint: string): string => {
@@ -98,15 +109,32 @@ export interface ApiResponse<T = any> {
 export const handleApiError = (error: any): string => {
   if (error.response) {
     // Server responded with error status
-    return (
-      error.response.data?.message ||
-      `HTTP ${error.response.status}: ${error.response.statusText}`
-    );
+    const { status, data } = error.response;
+
+    if (status === 401) {
+      return "Authentication failed. Please login again.";
+    } else if (status === 403) {
+      return "Access denied. You don't have permission to perform this action.";
+    } else if (status === 404) {
+      return "Resource not found.";
+    } else if (status === 422) {
+      // Validation errors
+      if (data.errors && Array.isArray(data.errors)) {
+        return data.errors.map((err: any) => err.msg).join(", ");
+      }
+      return data.message || "Validation failed.";
+    } else if (status >= 500) {
+      return "Server error. Please try again later.";
+    } else {
+      return (
+        data.message || data.error || `Request failed with status ${status}`
+      );
+    }
   } else if (error.request) {
-    // Request was made but no response received
-    return "No response from server. Please check your connection.";
+    // Network error
+    return "Network error. Please check your connection and try again.";
   } else {
-    // Something else happened
+    // Other error
     return error.message || "An unexpected error occurred.";
   }
 };

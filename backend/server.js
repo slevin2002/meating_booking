@@ -4,9 +4,23 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const morgan = require("morgan");
+const http = require("http");
+const socketIo = require("socket.io");
 require("dotenv").config({ path: "./config.env" });
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "http://192.168.2.136:3000",
+      "https://192.168.2.136:3000",
+    ],
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
 // Middleware
 app.use(helmet());
@@ -37,6 +51,7 @@ mongoose
 // Routes
 app.use("/api/teams", require("./routes/teams"));
 app.use("/api/meetings", require("./routes/meetings"));
+app.use("/api/zoom", require("./routes/zoom"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/status", require("./routes/status"));
 app.use("/api/admin", require("./routes/admin"));
@@ -65,8 +80,157 @@ app.use("*", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+// WebRTC Signaling Server Logic
+const rooms = new Map();
+const participants = new Map();
+
+io.on("connection", (socket) => {
+  console.log(`User connected: ${socket.id}`);
+
+  socket.on("join-room", ({ roomId, userName }) => {
+    console.log(`User ${userName} (${socket.id}) joining room: ${roomId}`);
+
+    // Join the room
+    socket.join(roomId);
+
+    // Store participant info
+    const participant = {
+      id: socket.id,
+      name: userName,
+      roomId: roomId,
+      isHost: !rooms.has(roomId) || rooms.get(roomId).participants.size === 0,
+    };
+
+    participants.set(socket.id, participant);
+
+    // Add to room
+    if (!rooms.has(roomId)) {
+      rooms.set(roomId, { participants: new Set() });
+    }
+    rooms.get(roomId).participants.add(socket.id);
+
+    console.log(
+      `Room ${roomId} now has ${
+        rooms.get(roomId).participants.size
+      } participants`
+    );
+
+    // Notify others in the room
+    socket.to(roomId).emit("user-joined", participant);
+
+    // Send existing participants to the joining user
+    const existingParticipants = Array.from(rooms.get(roomId).participants)
+      .filter((pid) => pid !== socket.id)
+      .map((pid) => participants.get(pid))
+      .filter((p) => p);
+
+    socket.emit("room-joined", {
+      roomId,
+      participants: existingParticipants,
+      isHost: participant.isHost,
+    });
+
+    // Send existing participants info to the joining user
+    socket.emit("existing-participants", existingParticipants);
+  });
+
+  socket.on("offer", ({ to, offer }) => {
+    console.log(`Offer from ${socket.id} to ${to}`);
+    socket.to(to).emit("offer", { from: socket.id, offer });
+  });
+
+  socket.on("answer", ({ to, answer }) => {
+    console.log(`Answer from ${socket.id} to ${to}`);
+    socket.to(to).emit("answer", { from: socket.id, answer });
+  });
+
+  socket.on("ice-candidate", ({ to, candidate }) => {
+    socket.to(to).emit("ice-candidate", { from: socket.id, candidate });
+  });
+
+  socket.on("toggle-mute", ({ isMuted }) => {
+    const participant = participants.get(socket.id);
+    if (participant) {
+      participant.isMuted = isMuted;
+      socket.to(participant.roomId).emit("participant-mute-changed", {
+        id: socket.id,
+        isMuted,
+      });
+    }
+  });
+
+  socket.on("toggle-video", ({ isVideoOff }) => {
+    const participant = participants.get(socket.id);
+    if (participant) {
+      participant.isVideoOff = isVideoOff;
+      socket.to(participant.roomId).emit("participant-video-changed", {
+        id: socket.id,
+        isVideoOff,
+      });
+    }
+  });
+
+  socket.on("screen-share-started", () => {
+    const participant = participants.get(socket.id);
+    if (participant) {
+      socket.to(participant.roomId).emit("screen-share-started", {
+        from: socket.id,
+        fromName: participant.name,
+      });
+    }
+  });
+
+  socket.on("screen-share-stopped", () => {
+    const participant = participants.get(socket.id);
+    if (participant) {
+      socket.to(participant.roomId).emit("screen-share-stopped", {
+        from: socket.id,
+      });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`User disconnected: ${socket.id}`);
+    const participant = participants.get(socket.id);
+
+    if (participant) {
+      const room = rooms.get(participant.roomId);
+      if (room) {
+        room.participants.delete(socket.id);
+
+        // Notify others that user left
+        socket.to(participant.roomId).emit("user-left", {
+          id: socket.id,
+          name: participant.name,
+        });
+
+        // If room is empty, delete it
+        if (room.participants.size === 0) {
+          rooms.delete(participant.roomId);
+          console.log(`Room ${participant.roomId} deleted (empty)`);
+        }
+      }
+
+      participants.delete(socket.id);
+    }
+  });
+});
+
+// Clean up empty rooms periodically
+setInterval(() => {
+  for (const [roomId, room] of rooms.entries()) {
+    if (room.participants.size === 0) {
+      rooms.delete(roomId);
+      console.log(`Room ${roomId} deleted (empty)`);
+    }
+  }
+}, 30000); // Check every 30 seconds
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Main server running on port ${PORT}`);
+  console.log(`🎥 WebRTC signaling server integrated`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`Server listening on http://localhost:${PORT}`);
+  console.log(`🌐 Network access: http://192.168.2.136:${PORT}`);
+  console.log(`WebSocket server ready for WebRTC connections`);
 });

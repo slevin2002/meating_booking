@@ -71,6 +71,36 @@ const meetingSchema = new mongoose.Schema(
         return this.isRecurring;
       },
     },
+    // Zoom meeting fields
+    meetingType: {
+      type: String,
+      enum: ["in-person", "zoom", "hybrid"],
+      default: "in-person",
+    },
+    zoomMeetingId: {
+      type: String,
+      required: function () {
+        return this.meetingType === "zoom" || this.meetingType === "hybrid";
+      },
+    },
+    zoomJoinUrl: {
+      type: String,
+      required: function () {
+        return this.meetingType === "zoom" || this.meetingType === "hybrid";
+      },
+    },
+    zoomStartUrl: {
+      type: String,
+      required: function () {
+        return this.meetingType === "zoom" || this.meetingType === "hybrid";
+      },
+    },
+    zoomPassword: {
+      type: String,
+      required: function () {
+        return this.meetingType === "zoom" || this.meetingType === "hybrid";
+      },
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -95,6 +125,8 @@ meetingSchema.index({ teamId: 1 });
 meetingSchema.index({ status: 1 });
 meetingSchema.index({ createdBy: 1 });
 meetingSchema.index({ attendees: 1 }); // Index for attendee queries
+meetingSchema.index({ meetingType: 1 }); // Index for meeting type queries
+meetingSchema.index({ zoomMeetingId: 1 }); // Index for Zoom meeting ID queries
 
 // Virtual for meeting duration in minutes
 meetingSchema.virtual("durationMinutes").get(function () {

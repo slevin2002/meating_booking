@@ -27,6 +27,12 @@ export interface Meeting {
   createdBy?: { _id: string; name: string; email: string };
   createdAt?: string;
   updatedAt?: string;
+  // Zoom meeting fields
+  meetingType?: "in-person" | "zoom" | "hybrid";
+  zoomMeetingId?: string;
+  zoomJoinUrl?: string;
+  zoomStartUrl?: string;
+  zoomPassword?: string;
 }
 
 export interface Team {

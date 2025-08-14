@@ -6,6 +6,13 @@ const tabs = [
   { id: "calendar", label: "Calendar", icon: "📅", path: "/calendar" },
   { id: "meetings", label: "Meetings", icon: "📋", path: "/meetings" },
   { id: "cancelled", label: "Cancelled", icon: "❌", path: "/cancelled" },
+  { id: "zoom", label: "Zoom Meeting", icon: "🎥", path: "/zoom" },
+  {
+    id: "video-conference",
+    label: "Video Conference",
+    icon: "📹",
+    path: "/video-conference",
+  },
   { id: "teams", label: "Teams", icon: "👥", path: "/teams" },
   {
     id: "availability",
